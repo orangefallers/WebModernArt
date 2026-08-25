@@ -1,0 +1,120 @@
+export const ARTIST_IDS = ['yellow', 'blue', 'red', 'green', 'brown'] as const
+export const AUCTION_TYPES = ['open', 'once-around', 'sealed', 'fixed-price', 'double'] as const
+
+export type ArtistId = (typeof ARTIST_IDS)[number]
+export type AuctionType = (typeof AUCTION_TYPES)[number]
+export type PlayerId = string
+export type Money = number
+
+export interface ArtistDefinition {
+  id: ArtistId
+  name: string
+  zhName: string
+  color: string
+  ink: string
+  priority: number
+  totalCards: number
+}
+
+export interface ArtworkCard {
+  id: string
+  artistId: ArtistId
+  auctionType: AuctionType
+  edition: number
+}
+
+export type Personality = 'conservative' | 'balanced' | 'aggressive' | 'chaotic'
+
+export interface GalleryEntry {
+  card: ArtworkCard
+  acquisition: 'auction' | 'unmatched-double'
+  sellableThisRound: boolean
+}
+
+export interface PlayerState {
+  id: PlayerId
+  name: string
+  kind: 'human' | 'ai'
+  cash: Money
+  hand: ArtworkCard[]
+  gallery: GalleryEntry[]
+  personality?: Personality
+}
+
+export type GamePhase = 'select-card' | 'double-response' | 'auction' | 'round-result' | 'game-over'
+
+export interface MarketRound {
+  round: number
+  values: Record<ArtistId, Money>
+  counts: Record<ArtistId, number>
+}
+
+export interface RoundResult {
+  round: number
+  ranking: ArtistId[]
+  values: Record<ArtistId, Money>
+  counts: Record<ArtistId, number>
+  earnings: Record<PlayerId, Money>
+}
+
+export interface GameLogEntry {
+  id: number
+  message: string
+  tone?: 'neutral' | 'bid' | 'sale' | 'round'
+}
+
+export interface PendingDouble {
+  primaryCard: ArtworkCard
+  primaryAuctioneerId: PlayerId
+  responderOrder: PlayerId[]
+  responderIndex: number
+}
+
+export interface AuctionState {
+  type: Exclude<AuctionType, 'double'>
+  cards: ArtworkCard[]
+  primaryAuctioneerId: PlayerId
+  secondaryAuctioneerId?: PlayerId
+  turnOrder: PlayerId[]
+  turnIndex: number
+  highestBid: Money
+  highestBidderId?: PlayerId
+  passedPlayerIds: PlayerId[]
+  bids: Partial<Record<PlayerId, Money>>
+  fixedPrice?: Money
+  priceSetterId?: PlayerId
+}
+
+export interface GameState {
+  schemaVersion: 1
+  seed: string
+  rngState: number
+  phase: GamePhase
+  round: 1 | 2 | 3 | 4
+  players: PlayerState[]
+  auctioneerIndex: number
+  deck: ArtworkCard[]
+  roundCounts: Record<ArtistId, number>
+  marketHistory: MarketRound[]
+  pendingDouble: PendingDouble | null
+  auction: AuctionState | null
+  roundResult: RoundResult | null
+  lastRoundEndPlayerId?: PlayerId
+  log: GameLogEntry[]
+  nextLogId: number
+}
+
+export interface StartGameOptions {
+  aiCount: 2 | 3 | 4
+  seed?: string
+}
+
+export class GameRuleError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+  ) {
+    super(message)
+    this.name = 'GameRuleError'
+  }
+}
