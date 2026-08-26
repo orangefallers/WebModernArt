@@ -49,12 +49,19 @@ export interface MarketRound {
   counts: Record<ArtistId, number>
 }
 
+export interface ArtworkSale {
+  card: ArtworkCard
+  unitPrice: Money
+}
+
 export interface RoundResult {
   round: number
   ranking: ArtistId[]
   values: Record<ArtistId, Money>
   counts: Record<ArtistId, number>
   earnings: Record<PlayerId, Money>
+  /** Optional so saves created before sale details were introduced still load safely. */
+  sales?: Record<PlayerId, ArtworkSale[]>
 }
 
 export interface GameLogEntry {
@@ -85,6 +92,13 @@ export interface AuctionState {
   priceSetterId?: PlayerId
 }
 
+export interface AuctionResult {
+  id: number
+  winnerId: PlayerId
+  amount: Money
+  cardCount: number
+}
+
 export interface GameState {
   schemaVersion: 1
   seed: string
@@ -98,6 +112,8 @@ export interface GameState {
   marketHistory: MarketRound[]
   pendingDouble: PendingDouble | null
   auction: AuctionState | null
+  /** Optional so saves created before winner notifications were introduced still load safely. */
+  lastAuctionResult?: AuctionResult
   roundResult: RoundResult | null
   lastRoundEndPlayerId?: PlayerId
   log: GameLogEntry[]

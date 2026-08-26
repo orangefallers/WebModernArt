@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { reactive } from 'vue'
 import { createDeck } from '@/domain/deck'
 import {
   continueAfterRound,
@@ -45,6 +46,17 @@ function executeDecision(state: GameState, playerId: PlayerId, decision: AIDecis
 }
 
 describe('game engine', () => {
+  it('accepts Vue reactive state when a player takes an action', () => {
+    const game = reactive(startGame({ aiCount: 2, seed: 'vue-reactive-state' }))
+    const selectedCard = game.players[0]?.hand[0]
+    if (!selectedCard) throw new Error('expected a card in the human hand')
+
+    const result = playCard(game, 'human', selectedCard.id)
+
+    expect(result.roundCounts[selectedCard.artistId]).toBe(1)
+    expect(result.players[0]?.hand.some((card) => card.id === selectedCard.id)).toBe(false)
+  })
+
   it.each([
     [2, 10],
     [3, 9],
@@ -85,6 +97,23 @@ describe('game engine', () => {
     expect(state.players.find((player) => player.id === 'ai-1')?.gallery).toHaveLength(1)
     expect(state.players.find((player) => player.id === 'ai-1')?.cash).toBe(90)
     expect(state.players.find((player) => player.id === 'human')?.cash).toBe(110)
+    expect(state.log.some((entry) => entry.message === 'AI 畫商 1 密封出價 $10k。')).toBe(true)
+    expect(state.log.some((entry) => entry.message === 'AI 畫商 2 密封出價 $10k。')).toBe(true)
+  })
+
+  it('tracks public bids and pass states while rejecting bids above available cash', () => {
+    const game = startGame({ aiCount: 2, seed: 'visible-bid-status' })
+    const auctionCard = card('brown', 'once-around')
+    game.players[0]!.hand = [auctionCard]
+    let state = playCard(game, 'human', auctionCard.id)
+
+    expect(() => placeBid(state, 'ai-1', 101)).toThrow('出價必須是高於目前價格且不超過現金的整數。')
+
+    state = placeBid(state, 'ai-1', 7)
+    expect(state.auction?.bids['ai-1']).toBe(7)
+
+    state = passBid(state, 'ai-2')
+    expect(state.auction?.passedPlayerIds).toContain('ai-2')
   })
 
   it('makes the auctioneer buy a fixed-price artwork when everyone declines', () => {
@@ -111,6 +140,11 @@ describe('game engine', () => {
     let state = playCard(game, 'human', jointCard.id)
     state = respondToDouble(state, 'human')
     state = respondToDouble(state, 'ai-1', secondCard.id)
+    expect(state.pendingDouble).toBeNull()
+    expect(state.auction?.cards.map((auctionCard) => auctionCard.id)).toEqual([
+      jointCard.id,
+      secondCard.id,
+    ])
     state = passBid(state, 'ai-1')
     state = placeBid(state, 'ai-2', 11)
     state = passBid(state, 'human')
@@ -119,6 +153,27 @@ describe('game engine', () => {
     expect(state.players.find((player) => player.id === 'ai-1')?.cash).toBe(106)
     expect(state.players.find((player) => player.id === 'ai-2')?.cash).toBe(89)
     expect(state.players.find((player) => player.id === 'ai-2')?.gallery).toHaveLength(2)
+    expect(state.lastAuctionResult).toMatchObject({
+      winnerId: 'ai-2',
+      amount: 11,
+      cardCount: 2,
+    })
+  })
+
+  it('records each artwork sold to the bank before clearing player galleries', () => {
+    const game = startGame({ aiCount: 2, seed: 'round-sales' })
+    const soldCard = card('yellow', 'sealed')
+    const finishingCard = card('yellow', 'open')
+    game.players[0]!.gallery = [{ card: soldCard, acquisition: 'auction', sellableThisRound: true }]
+    game.players[0]!.hand = [finishingCard]
+    game.roundCounts.yellow = 4
+
+    const result = playCard(game, 'human', finishingCard.id)
+
+    expect(result.roundResult?.sales?.human).toEqual([{ card: soldCard, unitPrice: 30 }])
+    expect(result.roundResult?.earnings.human).toBe(30)
+    expect(result.players[0]?.cash).toBe(130)
+    expect(result.players[0]?.gallery).toEqual([])
   })
 
   it('can simulate complete games without deadlocking', () => {

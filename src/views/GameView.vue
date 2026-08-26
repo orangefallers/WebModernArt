@@ -6,6 +6,7 @@ import { useGameStore } from '@/stores/game.store'
 import MarketBoard from '@/components/game/MarketBoard.vue'
 import PlayerRail from '@/components/game/PlayerRail.vue'
 import AuctionStage from '@/components/game/AuctionStage.vue'
+import AuctionLog from '@/components/game/AuctionLog.vue'
 import PlayerHand from '@/components/game/PlayerHand.vue'
 import RoundResultModal from '@/components/game/RoundResultModal.vue'
 import RulesModal from '@/components/common/RulesModal.vue'
@@ -15,6 +16,8 @@ const router = useRouter()
 const { game, human, actorId, isHumanTurn, thinkingPlayerId } = storeToRefs(store)
 const showRules = ref(false)
 const showMenu = ref(false)
+const showRestartConfirm = ref(false)
+const handCollapsed = ref(false)
 
 const finalRanking = computed(() =>
   [...(game.value?.players ?? [])].sort((left, right) => right.cash - left.cash),
@@ -28,10 +31,24 @@ function leave(): void {
   store.quit()
   void router.push('/')
 }
+
+function requestRestart(): void {
+  showMenu.value = false
+  showRestartConfirm.value = true
+}
+
+function confirmRestart(): void {
+  store.discard()
+  void router.replace('/')
+}
 </script>
 
 <template>
-  <div v-if="game && human" class="game-page">
+  <div
+    v-if="game && human"
+    class="game-page"
+    :class="{ 'game-page--hand-collapsed': handCollapsed }"
+  >
     <header class="game-nav">
       <button class="brand-mark brand-mark--game" aria-label="返回首頁" @click="leave">
         <i></i><span>MA / 92</span>
@@ -44,7 +61,7 @@ function leave(): void {
         <button class="text-button" @click="showRules = true">規則</button>
         <button class="icon-button" aria-label="遊戲選單" @click="showMenu = !showMenu">•••</button>
         <div v-if="showMenu" class="game-menu">
-          <button @click="store.restart()">重新開始</button>
+          <button @click="requestRestart">重新開始</button>
           <button @click="leave">儲存並回首頁</button>
         </div>
       </div>
@@ -53,7 +70,10 @@ function leave(): void {
     <div class="game-layout">
       <MarketBoard :game="game" />
       <AuctionStage />
-      <PlayerRail :game="game" :actor-id="actorId" :thinking-player-id="thinkingPlayerId" />
+      <aside class="game-side-stack">
+        <PlayerRail :game="game" :actor-id="actorId" :thinking-player-id="thinkingPlayerId" />
+        <AuctionLog :game="game" />
+      </aside>
     </div>
 
     <div v-if="store.errorMessage" class="error-toast" role="alert">{{ store.errorMessage }}</div>
@@ -62,8 +82,10 @@ function leave(): void {
       :game="game"
       :human="human"
       :is-human-turn="isHumanTurn"
+      :collapsed="handCollapsed"
       @play="store.humanPlayCard"
       @supplement="store.humanDouble"
+      @toggle="handCollapsed = !handCollapsed"
     />
 
     <RoundResultModal
@@ -97,6 +119,24 @@ function leave(): void {
         <div class="modal-actions">
           <button class="button button--primary" @click="store.restart()">再玩一局</button>
           <button class="button button--ghost" @click="leave">返回首頁</button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="showRestartConfirm" class="modal-backdrop">
+      <section
+        class="result-modal restart-confirm-modal"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="restart-confirm-title"
+        aria-describedby="restart-confirm-description"
+      >
+        <span class="eyebrow">Restart game</span>
+        <h2 id="restart-confirm-title">確定重新開始？</h2>
+        <p id="restart-confirm-description">目前的遊戲進度將會刪除，並返回首頁。</p>
+        <div class="modal-actions">
+          <button class="button button--ghost" @click="showRestartConfirm = false">取消</button>
+          <button class="button button--primary" @click="confirmRestart">確認並返回首頁</button>
         </div>
       </section>
     </div>

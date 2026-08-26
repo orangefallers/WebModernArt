@@ -6,13 +6,29 @@ import { useGameStore } from '@/stores/game.store'
 import ArtworkCard from './ArtworkCard.vue'
 
 const store = useGameStore()
-const { game, actor, isHumanTurn, thinkingPlayerId, human } = storeToRefs(store)
-const amount = ref(1)
+const { game, actor, isHumanTurn, thinkingPlayerId, human, auctionResultNotice } =
+  storeToRefs(store)
+const amountInput = ref<string | number>('1')
+
+const auctioneer = computed(() => {
+  const state = game.value
+  if (!state) return undefined
+  const auctioneerId =
+    state.auction?.primaryAuctioneerId ??
+    state.pendingDouble?.primaryAuctioneerId ??
+    state.players[state.auctioneerIndex]?.id
+  return state.players.find((player) => player.id === auctioneerId)
+})
+
+const auctionWinner = computed(() =>
+  game.value?.players.find((player) => player.id === auctionResultNotice.value?.winnerId),
+)
 
 const displayedCards = computed(() => {
   if (!game.value) return []
+  if (game.value.auction) return game.value.auction.cards
   if (game.value.pendingDouble) return [game.value.pendingDouble.primaryCard]
-  return game.value.auction?.cards ?? []
+  return []
 })
 
 const minimum = computed(() => {
@@ -21,6 +37,36 @@ const minimum = computed(() => {
   if (auction.type === 'sealed' || auction.type === 'fixed-price') return 0
   return auction.highestBid + 1
 })
+
+const availableCash = computed(() => human.value?.cash ?? 0)
+
+const amount = computed(() => {
+  if (String(amountInput.value).trim() === '') return Number.NaN
+  return Number(amountInput.value)
+})
+
+const amountError = computed(() => {
+  if (!Number.isFinite(amount.value)) return '請輸入金額。'
+  if (!Number.isInteger(amount.value) || amount.value < 0) return '金額必須是非負整數。'
+  if (amount.value > availableCash.value)
+    return `超過可用現金 $${availableCash.value}k，請降低金額。`
+  if (amount.value < minimum.value) return `本次最低金額為 $${minimum.value}k。`
+  return ''
+})
+
+const canSubmitAmount = computed(() => amountError.value === '')
+
+function addAmount(increment: 1 | 5 | 10): void {
+  const current = Number.isFinite(amount.value) ? amount.value : minimum.value
+  amountInput.value = String(
+    Math.min(availableCash.value, Math.max(minimum.value, current + increment)),
+  )
+}
+
+function canAddAmount(increment: 1 | 5 | 10): boolean {
+  const current = Number.isFinite(amount.value) ? amount.value : minimum.value
+  return current + increment <= availableCash.value
+}
 
 const heading = computed(() => {
   const state = game.value
@@ -56,14 +102,14 @@ const instruction = computed(() => {
 watch(
   () => [game.value?.phase, game.value?.auction?.highestBid, game.value?.auction?.fixedPrice],
   () => {
-    amount.value = Math.max(minimum.value, 0)
+    amountInput.value = String(Math.max(minimum.value, 0))
   },
   { immediate: true },
 )
 
 function submitAmount(): void {
   const auction = game.value?.auction
-  if (!auction) return
+  if (!auction || !canSubmitAmount.value) return
   if (auction.type === 'sealed') store.humanSealedBid(amount.value)
   else if (auction.type === 'fixed-price' && auction.fixedPrice === undefined)
     store.humanSetPrice(amount.value)
@@ -77,7 +123,19 @@ function submitAmount(): void {
       <span class="eyebrow">Live auction · Round {{ game?.round }}</span>
       <h1>{{ heading }}</h1>
       <p>{{ instruction }}</p>
+      <div v-if="auctioneer" class="current-auctioneer">
+        <span>本次拍賣官</span>
+        <strong>{{ auctioneer.name }}</strong>
+      </div>
     </div>
+
+    <Transition name="auction-result">
+      <div v-if="auctionResultNotice && auctionWinner" class="auction-result-notice" role="status">
+        <span>HAMMER DOWN</span>
+        <strong>{{ auctionWinner.name }} 得標</strong>
+        <b>${{ auctionResultNotice.amount }}k · {{ auctionResultNotice.cardCount }} 張作品</b>
+      </div>
+    </Transition>
 
     <div
       class="auction-stage__art"
@@ -129,22 +187,41 @@ function submitAmount(): void {
           </button>
         </template>
         <template v-else>
-          <label class="money-input">
-            <span>$</span>
-            <input
-              v-model.number="amount"
-              type="number"
-              :min="minimum"
-              :max="human?.cash ?? 0"
-              step="1"
-            />
-            <small>k</small>
-          </label>
-          <button
-            class="button button--primary"
-            :disabled="amount < minimum || amount > (human?.cash ?? 0)"
-            @click="submitAmount"
-          >
+          <div class="money-entry">
+            <div class="money-entry__row">
+              <label class="money-input" :class="{ 'money-input--invalid': amountError }">
+                <span>$</span>
+                <input
+                  v-model="amountInput"
+                  type="number"
+                  inputmode="numeric"
+                  aria-label="輸入出價金額"
+                  :aria-invalid="Boolean(amountError)"
+                  :min="minimum"
+                  :max="availableCash"
+                  step="1"
+                />
+                <small>k</small>
+              </label>
+              <div class="quick-bids" aria-label="快速增加金額">
+                <button
+                  v-for="increment in [1, 5, 10] as const"
+                  :key="increment"
+                  type="button"
+                  :disabled="!canAddAmount(increment)"
+                  @click="addAmount(increment)"
+                >
+                  +{{ increment }}k
+                </button>
+              </div>
+            </div>
+            <div class="money-entry__feedback">
+              <span :class="{ 'money-entry__error': amountError }">
+                {{ amountError || `可用現金 $${availableCash}k` }}
+              </span>
+            </div>
+          </div>
+          <button class="button button--primary" :disabled="!canSubmitAmount" @click="submitAmount">
             {{
               game.auction.type === 'sealed'
                 ? '封存出價'

@@ -3,6 +3,7 @@ import {
   type ArtistId,
   type AuctionState,
   type ArtworkCard,
+  type ArtworkSale,
   type GameState,
   type Money,
   type PlayerId,
@@ -28,7 +29,9 @@ function emptyArtistNumbers(): Record<ArtistId, number> {
 }
 
 function clone(state: GameState): GameState {
-  return structuredClone(state)
+  // GameState is intentionally JSON-serializable for LocalStorage saves.
+  // Serializing here also unwraps Vue reactive proxies before the domain engine mutates its copy.
+  return JSON.parse(JSON.stringify(state)) as GameState
 }
 
 function playerById(state: GameState, playerId: PlayerId): PlayerState {
@@ -139,17 +142,22 @@ function scoreRound(state: GameState): void {
   }
 
   const earnings: Record<PlayerId, Money> = {}
+  const sales: Record<PlayerId, ArtworkSale[]> = {}
   for (const player of state.players) {
     let earned = 0
+    const playerSales: ArtworkSale[] = []
     for (const entry of player.gallery) {
       const currentValue = values[entry.card.artistId]
       if (entry.sellableThisRound && currentValue > 0) {
-        earned += currentValue + historicalValues[entry.card.artistId]
+        const unitPrice = currentValue + historicalValues[entry.card.artistId]
+        earned += unitPrice
+        playerSales.push({ card: entry.card, unitPrice })
       }
     }
     player.cash += earned
     player.gallery = []
     earnings[player.id] = earned
+    sales[player.id] = playerSales
     log(state, `${player.name} 本輪售畫收入 $${earned}k。`, 'sale')
   }
 
@@ -164,6 +172,7 @@ function scoreRound(state: GameState): void {
     values,
     counts: { ...state.roundCounts },
     earnings,
+    sales,
   }
   state.roundResult = result
   state.phase = 'round-result'
@@ -218,6 +227,7 @@ function createAuction(
     priceSetterId,
   }
   state.auction = auction
+  state.pendingDouble = null
   state.phase = 'auction'
   log(
     state,
@@ -328,6 +338,12 @@ function settleAuction(state: GameState, winnerId: PlayerId, amount: Money): voi
   for (const card of auction.cards) {
     winner.gallery.push({ card, acquisition: 'auction', sellableThisRound: true })
   }
+  state.lastAuctionResult = {
+    id: state.nextLogId,
+    winnerId,
+    amount,
+    cardCount: auction.cards.length,
+  }
   log(state, `${winner.name} 以 $${amount}k 得標 ${auction.cards.length} 張作品。`, 'sale')
   advanceAuctioneer(state)
 }
@@ -371,6 +387,7 @@ export function placeBid(inputState: GameState, playerId: PlayerId, amount: Mone
   }
   auction.highestBid = amount
   auction.highestBidderId = playerId
+  auction.bids[playerId] = amount
   log(state, `${player.name} 出價 $${amount}k。`, 'bid')
 
   if (auction.type === 'once-around') {
@@ -391,6 +408,7 @@ export function passBid(inputState: GameState, playerId: PlayerId): GameState {
   const actorId = auction.turnOrder[auction.turnIndex]
   if (actorId !== playerId) throw new GameRuleError('NOT_YOUR_TURN', '尚未輪到這位玩家。')
   log(state, `${playerById(state, playerId).name} 放棄出價。`)
+  if (!auction.passedPlayerIds.includes(playerId)) auction.passedPlayerIds.push(playerId)
 
   if (auction.type === 'once-around') {
     auction.turnIndex += 1
@@ -399,7 +417,6 @@ export function passBid(inputState: GameState, playerId: PlayerId): GameState {
       else finishNoBid(state)
     }
   } else {
-    if (!auction.passedPlayerIds.includes(playerId)) auction.passedPlayerIds.push(playerId)
     advanceOpenTurn(state)
   }
   return state
@@ -424,6 +441,13 @@ export function submitSealedBid(
   auction.bids[playerId] = amount
   log(state, `${player.name} 已封存出價。`)
   if (auction.turnOrder.every((id) => auction.bids[id] !== undefined)) {
+    for (const bidderId of auction.turnOrder) {
+      log(
+        state,
+        `${playerById(state, bidderId).name} 密封出價 $${auction.bids[bidderId] ?? 0}k。`,
+        'bid',
+      )
+    }
     const winnerId = auction.turnOrder.reduce((winner, candidate) => {
       const winnerBid = auction.bids[winner] ?? -1
       const candidateBid = auction.bids[candidate] ?? -1
@@ -473,9 +497,11 @@ export function respondToFixedPrice(
   const player = playerById(state, playerId)
   if (accept) {
     if (auction.fixedPrice > player.cash) throw new GameRuleError('INSUFFICIENT_CASH', '現金不足。')
+    auction.bids[playerId] = auction.fixedPrice
     settleAuction(state, playerId, auction.fixedPrice)
   } else {
     log(state, `${player.name} 拒絕定價。`)
+    if (!auction.passedPlayerIds.includes(playerId)) auction.passedPlayerIds.push(playerId)
     auction.turnIndex += 1
     if (auction.turnIndex >= auction.turnOrder.length) {
       settleAuction(state, auction.priceSetterId ?? auction.primaryAuctioneerId, auction.fixedPrice)

@@ -14,7 +14,7 @@ import {
   startGame,
   submitSealedBid,
 } from '@/domain/game-engine'
-import { GameRuleError, type GameState, type PlayerId } from '@/domain/model'
+import { GameRuleError, type AuctionResult, type GameState, type PlayerId } from '@/domain/model'
 import { clearSave, hasSavedGame, loadGame, saveGame } from '@/services/persistence.service'
 
 const wait = (milliseconds: number) =>
@@ -24,19 +24,40 @@ export const useGameStore = defineStore('game', () => {
   const game = ref<GameState | null>(null)
   const savedGameAvailable = ref(hasSavedGame())
   const thinkingPlayerId = ref<PlayerId | null>(null)
+  const auctionResultNotice = ref<AuctionResult | null>(null)
   const errorMessage = ref('')
   let aiRunToken = 0
+  let auctionResultTimer: number | undefined
 
   const human = computed(() => game.value?.players.find((player) => player.kind === 'human'))
   const actorId = computed(() => (game.value ? currentActorId(game.value) : undefined))
   const actor = computed(() => game.value?.players.find((player) => player.id === actorId.value))
   const isHumanTurn = computed(() => actor.value?.kind === 'human')
 
+  function clearAuctionResultNotice(): void {
+    if (auctionResultTimer !== undefined) window.clearTimeout(auctionResultTimer)
+    auctionResultTimer = undefined
+    auctionResultNotice.value = null
+  }
+
+  function showAuctionResultNotice(result: AuctionResult): void {
+    clearAuctionResultNotice()
+    auctionResultNotice.value = result
+    auctionResultTimer = window.setTimeout(() => {
+      auctionResultNotice.value = null
+      auctionResultTimer = undefined
+    }, 3200)
+  }
+
   function commit(nextState: GameState): void {
+    const previousAuctionResultId = game.value?.lastAuctionResult?.id
     game.value = nextState
     saveGame(nextState)
     savedGameAvailable.value = true
     errorMessage.value = ''
+    if (nextState.lastAuctionResult && nextState.lastAuctionResult.id !== previousAuctionResultId) {
+      showAuctionResultNotice(nextState.lastAuctionResult)
+    }
   }
 
   function handleError(error: unknown): void {
@@ -46,6 +67,7 @@ export const useGameStore = defineStore('game', () => {
 
   function begin(aiCount: 2 | 3 | 4): void {
     aiRunToken += 1
+    clearAuctionResultNotice()
     commit(startGame({ aiCount }))
     void runAI()
   }
@@ -54,6 +76,7 @@ export const useGameStore = defineStore('game', () => {
     const restored = loadGame()
     if (!restored) return false
     aiRunToken += 1
+    clearAuctionResultNotice()
     game.value = restored
     void runAI()
     return true
@@ -61,8 +84,15 @@ export const useGameStore = defineStore('game', () => {
 
   function quit(): void {
     aiRunToken += 1
+    clearAuctionResultNotice()
     game.value = null
     thinkingPlayerId.value = null
+  }
+
+  function discard(): void {
+    quit()
+    clearSave()
+    savedGameAvailable.value = false
   }
 
   function restart(aiCount?: 2 | 3 | 4): void {
@@ -171,11 +201,13 @@ export const useGameStore = defineStore('game', () => {
     actorId,
     isHumanTurn,
     thinkingPlayerId,
+    auctionResultNotice,
     savedGameAvailable,
     errorMessage,
     begin,
     resume,
     quit,
+    discard,
     restart,
     humanPlayCard,
     humanDouble,
