@@ -3,15 +3,21 @@ import { mount } from '@vue/test-utils'
 import SettingsModal from '@/components/common/SettingsModal.vue'
 import ArtworkCard from '@/components/game/ArtworkCard.vue'
 import { createDeck } from '@/domain/deck'
+import { startGame } from '@/domain/game-engine'
 import { ARTIST_IDS } from '@/domain/model'
 import {
   artistDisplayName,
+  getAISettings,
+  restoreDefaultAISettings,
   restoreDefaultArtistNames,
   validateArtistName,
 } from '@/services/settings.service'
 
 describe('artist name settings', () => {
-  afterEach(() => restoreDefaultArtistNames())
+  afterEach(() => {
+    restoreDefaultArtistNames()
+    restoreDefaultAISettings()
+  })
 
   it('accepts Chinese and English letters while rejecting invalid or long names', () => {
     expect(validateArtistName('新畫家Artist')).toBe('')
@@ -23,6 +29,7 @@ describe('artist name settings', () => {
     const wrapper = mount(SettingsModal)
     const inputs = wrapper.findAll('.artist-name-field input')
     expect(inputs).toHaveLength(5)
+    expect(wrapper.text()).not.toContain('Carvalho')
 
     await inputs[0]!.setValue('ABCDEFGHIJK')
     expect(wrapper.text()).toContain('名稱最多 10 個字。')
@@ -55,5 +62,23 @@ describe('artist name settings', () => {
       expect(classes[index]).toContain(`art-card--artist-${artistId}`)
     })
     expect(new Set(classes.map((classList) => classList.join(' '))).size).toBe(ARTIST_IDS.length)
+  })
+
+  it('saves AI dealer names and personalities for new games', async () => {
+    const wrapper = mount(SettingsModal)
+    const aiNames = wrapper.findAll('.ai-setting-row input')
+    const personalities = wrapper.findAll('.ai-setting-row select')
+
+    expect(aiNames).toHaveLength(4)
+    expect(personalities).toHaveLength(4)
+    await aiNames[0]!.setValue('穩健畫商')
+    await personalities[0]!.setValue('aggressive')
+    await wrapper.get('button.button--primary').trigger('click')
+
+    const configuredAI = getAISettings()
+    expect(configuredAI[0]).toEqual({ name: '穩健畫商', personality: 'aggressive' })
+
+    const game = startGame({ aiCount: 2, seed: 'custom-ai-settings', aiPlayers: configuredAI })
+    expect(game.players[1]).toMatchObject({ name: '穩健畫商', personality: 'aggressive' })
   })
 })

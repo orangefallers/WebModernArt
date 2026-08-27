@@ -4,7 +4,7 @@ import type { GameState } from '@/domain/model'
 
 const props = defineProps<{ game: GameState }>()
 
-const recentEntries = computed(() => [...props.game.log].slice(-8).reverse())
+const allEntries = computed(() => [...props.game.log].reverse())
 </script>
 
 <template>
@@ -14,11 +14,11 @@ const recentEntries = computed(() => [...props.game.log].slice(-8).reverse())
         <span class="eyebrow">Live ledger</span>
         <h2 id="auction-log-title">拍賣動態</h2>
       </div>
-      <span class="auction-log__live"><i></i> LIVE</span>
+      <span class="auction-log__live"><i></i> 全場 {{ game.log.length }} 筆</span>
     </div>
-    <ol class="auction-log__list">
+    <ol class="auction-log__list" aria-label="完整遊戲動態，最新紀錄優先">
       <li
-        v-for="entry in recentEntries"
+        v-for="entry in allEntries"
         :key="entry.id"
         :class="`auction-log__entry--${entry.tone ?? 'neutral'}`"
       >

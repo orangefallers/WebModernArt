@@ -1,5 +1,6 @@
 export const ARTIST_IDS = ['yellow', 'blue', 'red', 'green', 'brown'] as const
 export const AUCTION_TYPES = ['open', 'once-around', 'sealed', 'fixed-price', 'double'] as const
+export const PERSONALITY_IDS = ['conservative', 'balanced', 'aggressive', 'chaotic'] as const
 
 export type ArtistId = (typeof ARTIST_IDS)[number]
 export type AuctionType = (typeof AUCTION_TYPES)[number]
@@ -23,12 +24,14 @@ export interface ArtworkCard {
   edition: number
 }
 
-export type Personality = 'conservative' | 'balanced' | 'aggressive' | 'chaotic'
+export type Personality = (typeof PERSONALITY_IDS)[number]
 
 export interface GalleryEntry {
   card: ArtworkCard
   acquisition: 'auction' | 'unmatched-double'
   sellableThisRound: boolean
+  /** Optional so saves created before acquisition costs were introduced still load safely. */
+  purchasePrice?: Money
 }
 
 export interface PlayerState {
@@ -54,6 +57,14 @@ export interface ArtworkSale {
   unitPrice: Money
 }
 
+export interface ArtworkRoundResult {
+  card: ArtworkCard
+  acquisition: GalleryEntry['acquisition']
+  sellableThisRound: boolean
+  purchasePrice?: Money
+  bankSalePrice?: Money
+}
+
 export interface RoundResult {
   round: number
   ranking: ArtistId[]
@@ -62,6 +73,8 @@ export interface RoundResult {
   earnings: Record<PlayerId, Money>
   /** Optional so saves created before sale details were introduced still load safely. */
   sales?: Record<PlayerId, ArtworkSale[]>
+  /** Optional so saves created before complete artwork settlement details still load safely. */
+  artworks?: Record<PlayerId, ArtworkRoundResult[]>
   /** Optional so saves created before the next-round preview was introduced still load safely. */
   nextAuctioneerId?: PlayerId
 }
@@ -102,6 +115,8 @@ export interface AuctionPayout {
 
 export interface AuctionResult {
   id: number
+  /** Optional so saves created before unmatched Double results were introduced still load safely. */
+  kind?: 'auction' | 'unmatched-double'
   winnerId: PlayerId
   amount: Money
   cardCount: number
@@ -134,6 +149,8 @@ export interface GameState {
 export interface StartGameOptions {
   aiCount: 2 | 3 | 4
   seed?: string
+  humanName?: string
+  aiPlayers?: Array<{ name: string; personality: Personality }>
 }
 
 export class GameRuleError extends Error {

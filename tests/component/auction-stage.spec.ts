@@ -99,4 +99,25 @@ describe('AuctionStage', () => {
     expect(notice).toContain('得標拍賣官 · 你的藝廊')
     expect(notice).toContain('支付銀行 $5k')
   })
+
+  it('shows a free acquisition when nobody supplements a Double card', () => {
+    const store = useGameStore()
+    store.game = startGame({ aiCount: 2, seed: 'unmatched-double-notice' })
+    store.auctionResultNotice = {
+      id: 102,
+      kind: 'unmatched-double',
+      winnerId: 'human',
+      amount: 0,
+      cardCount: 1,
+      payouts: [],
+    }
+
+    const notice = mount(AuctionStage).get('.auction-result-notice').text()
+
+    expect(notice).toContain('HAMMER DOWN')
+    expect(notice).toContain('你的藝廊 免費獲得')
+    expect(notice).toContain('未配對聯合拍賣 · 1 張作品')
+    expect(notice).toContain('聯合拍賣無人補牌')
+    expect(notice).toContain('支付 $0k')
+  })
 })

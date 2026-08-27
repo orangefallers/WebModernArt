@@ -69,6 +69,80 @@ describe('game engine', () => {
     expect(game.players.every((player) => player.cash === 100)).toBe(true)
   })
 
+  it('uses configured gallery and AI dealer identities', () => {
+    const game = startGame({
+      aiCount: 2,
+      seed: 'configured-player-identities',
+      humanName: '橘子藝廊',
+      aiPlayers: [
+        { name: '穩健畫商', personality: 'conservative' },
+        { name: '市場獵手', personality: 'aggressive' },
+      ],
+    })
+
+    expect(game.players[0]?.name).toBe('橘子藝廊')
+    expect(game.players[1]).toMatchObject({ name: '穩健畫商', personality: 'conservative' })
+    expect(game.players[2]).toMatchObject({ name: '市場獵手', personality: 'aggressive' })
+  })
+
+  it.each(['conservative', 'balanced', 'aggressive', 'chaotic'] as const)(
+    'caps %s AI bids at the maximum possible market resale value',
+    (personality) => {
+      const game = startGame({ aiCount: 2, seed: `market-cap-${personality}` })
+      game.round = 3
+      game.marketHistory = [
+        {
+          round: 1,
+          values: { yellow: 10, blue: 0, red: 0, green: 0, brown: 0 },
+          counts: { yellow: 3, blue: 2, red: 1, green: 0, brown: 0 },
+        },
+        {
+          round: 2,
+          values: { yellow: 10, blue: 0, red: 0, green: 0, brown: 0 },
+          counts: { yellow: 3, blue: 2, red: 1, green: 0, brown: 0 },
+        },
+      ]
+      game.auctioneerIndex = 0
+      game.players[1]!.personality = personality
+      const auctionCard = card('yellow', 'sealed')
+      game.players[0]!.hand = [auctionCard]
+      const auctionState = playCard(game, 'human', auctionCard.id)
+
+      const decision = decideAI(auctionState, 'ai-1')
+
+      expect(decision.type).toBe('sealed')
+      if (decision.type !== 'sealed') throw new Error('expected a sealed bid')
+      expect(decision.amount).toBeLessThanOrEqual(50)
+    },
+  )
+
+  it('rejects a fixed price above the maximum possible market resale value', () => {
+    const game = startGame({ aiCount: 2, seed: 'fixed-price-market-cap' })
+    game.round = 3
+    game.marketHistory = [
+      {
+        round: 1,
+        values: { yellow: 10, blue: 0, red: 0, green: 0, brown: 0 },
+        counts: { yellow: 3, blue: 2, red: 1, green: 0, brown: 0 },
+      },
+      {
+        round: 2,
+        values: { yellow: 10, blue: 0, red: 0, green: 0, brown: 0 },
+        counts: { yellow: 3, blue: 2, red: 1, green: 0, brown: 0 },
+      },
+    ]
+    game.auctioneerIndex = 0
+    game.players[1]!.personality = 'aggressive'
+    const auctionCard = card('yellow', 'fixed-price')
+    game.players[0]!.hand = [auctionCard]
+    let auctionState = playCard(game, 'human', auctionCard.id)
+    auctionState = setFixedPrice(auctionState, 'human', 51)
+
+    const decision = decideAI(auctionState, 'ai-1')
+
+    expect(decision).toMatchObject({ type: 'fixed-response', accept: false })
+  })
+
   it('selects the first auctioneer randomly and reproducibly from all players', () => {
     const first = startGame({ aiCount: 4, seed: 'random-auctioneer' })
     const repeated = startGame({ aiCount: 4, seed: 'random-auctioneer' })
@@ -100,11 +174,35 @@ describe('game engine', () => {
     expect(result.players.every((player) => player.gallery.length === 0)).toBe(true)
     expect(result.roundResult?.values.yellow).toBe(30)
     expect(result.roundResult?.nextAuctioneerId).toBe('ai-1')
+    expect(result.log.at(-1)?.message).toBe(
+      '第 1 輪落幕，你的藝廊 推出本輪最後一張畫作，市場完成結算。',
+    )
 
     const nextRound = continueAfterRound(result)
     expect(nextRound.players[nextRound.auctioneerIndex]?.id).toBe(
       result.roundResult?.nextAuctioneerId,
     )
+  })
+
+  it('keeps the complete game log after it exceeds 80 entries', () => {
+    const game = startGame({ aiCount: 2, seed: 'complete-game-log' })
+    game.auctioneerIndex = 0
+    game.log = Array.from({ length: 80 }, (_, index) => ({
+      id: index + 1,
+      message: `歷史紀錄 ${index + 1}`,
+      tone: 'neutral' as const,
+    }))
+    game.nextLogId = 81
+    const selectedCard = game.players[0]?.hand.find(
+      (candidate) => candidate.auctionType !== 'double',
+    )
+    if (!selectedCard) throw new Error('expected a non-double card')
+
+    const result = playCard(game, 'human', selectedCard.id)
+
+    expect(result.log).toHaveLength(82)
+    expect(result.log[0]?.message).toBe('歷史紀錄 1')
+    expect(result.log.at(-1)?.message).toContain('拍賣開始')
   })
 
   it('uses clockwise priority to break sealed bid ties', () => {
@@ -193,6 +291,11 @@ describe('game engine', () => {
     expect(state.players.find((player) => player.id === 'ai-1')?.cash).toBe(106)
     expect(state.players.find((player) => player.id === 'ai-2')?.cash).toBe(89)
     expect(state.players.find((player) => player.id === 'ai-2')?.gallery).toHaveLength(2)
+    expect(
+      state.players
+        .find((player) => player.id === 'ai-2')
+        ?.gallery.map((entry) => entry.purchasePrice),
+    ).toEqual([6, 5])
     expect(state.lastAuctionResult).toMatchObject({
       winnerId: 'ai-2',
       amount: 11,
@@ -204,6 +307,37 @@ describe('game engine', () => {
     })
     expect(state.auctioneerIndex).toBe(2)
     expect(currentActorId(state)).toBe('ai-2')
+  })
+
+  it('records a free acquisition result when nobody supplements a Double card', () => {
+    const game = startGame({ aiCount: 2, seed: 'unmatched-double-result' })
+    game.auctioneerIndex = 0
+    const jointCard = card('green', 'double')
+    game.players[0]!.hand = [jointCard]
+
+    let state = playCard(game, 'human', jointCard.id)
+    state = respondToDouble(state, 'human')
+    state = respondToDouble(state, 'ai-1')
+    state = respondToDouble(state, 'ai-2')
+
+    expect(state.phase).toBe('select-card')
+    expect(state.players[0]?.gallery).toEqual([
+      {
+        card: jointCard,
+        acquisition: 'unmatched-double',
+        sellableThisRound: false,
+        purchasePrice: 0,
+      },
+    ])
+    expect(state.lastAuctionResult).toEqual({
+      id: expect.any(Number),
+      kind: 'unmatched-double',
+      winnerId: 'human',
+      amount: 0,
+      cardCount: 1,
+      payouts: [],
+    })
+    expect(state.auctioneerIndex).toBe(1)
   })
 
   it.each([
@@ -247,18 +381,38 @@ describe('game engine', () => {
     },
   )
 
-  it('records each artwork sold to the bank before clearing player galleries', () => {
+  it('records sold and unsold artworks with their purchase costs before clearing galleries', () => {
     const game = startGame({ aiCount: 2, seed: 'round-sales' })
     game.auctioneerIndex = 0
     const soldCard = card('yellow', 'sealed')
+    const unsoldCard = card('green', 'fixed-price')
     const finishingCard = card('yellow', 'open')
-    game.players[0]!.gallery = [{ card: soldCard, acquisition: 'auction', sellableThisRound: true }]
+    game.players[0]!.gallery = [
+      { card: soldCard, acquisition: 'auction', sellableThisRound: true, purchasePrice: 14 },
+      { card: unsoldCard, acquisition: 'auction', sellableThisRound: true, purchasePrice: 9 },
+    ]
     game.players[0]!.hand = [finishingCard]
     game.roundCounts.yellow = 4
 
     const result = playCard(game, 'human', finishingCard.id)
 
     expect(result.roundResult?.sales?.human).toEqual([{ card: soldCard, unitPrice: 30 }])
+    expect(result.roundResult?.artworks?.human).toEqual([
+      {
+        card: soldCard,
+        acquisition: 'auction',
+        sellableThisRound: true,
+        purchasePrice: 14,
+        bankSalePrice: 30,
+      },
+      {
+        card: unsoldCard,
+        acquisition: 'auction',
+        sellableThisRound: true,
+        purchasePrice: 9,
+        bankSalePrice: undefined,
+      },
+    ])
     expect(result.roundResult?.earnings.human).toBe(30)
     expect(result.players[0]?.cash).toBe(130)
     expect(result.players[0]?.gallery).toEqual([])

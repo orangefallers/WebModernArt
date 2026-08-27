@@ -1,13 +1,23 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { ARTISTS, AUCTION_LABELS, AUCTION_SYMBOLS, PERSONALITY_LABELS } from '@/config/game-rules'
 import type { GameState, PlayerId } from '@/domain/model'
 import { artistDisplayName } from '@/services/settings.service'
+import { useDeveloperSettings } from '@/services/developer-settings.service'
 
 const props = defineProps<{
   game: GameState
   actorId?: PlayerId
   thinkingPlayerId: PlayerId | null
 }>()
+
+const currentAuctioneerId = computed(
+  () =>
+    props.game.auction?.primaryAuctioneerId ??
+    props.game.pendingDouble?.primaryAuctioneerId ??
+    props.game.players[props.game.auctioneerIndex]?.id,
+)
+const { developerSettings } = useDeveloperSettings()
 
 function auctionStatus(
   playerId: PlayerId,
@@ -55,7 +65,16 @@ function auctionStatus(
           {{ player.kind === 'human' ? 'YOU' : 'AI' }}
         </span>
         <span class="player-seat__identity">
-          <b>{{ player.name }}</b>
+          <span class="player-seat__name">
+            <b>{{ player.name }}</b>
+            <span
+              v-if="player.id === currentAuctioneerId"
+              class="player-seat__auctioneer-icon"
+              role="img"
+              :aria-label="`${player.name} 是當前拍賣官`"
+              title="當前拍賣官"
+            ></span>
+          </span>
           <small v-if="player.kind === 'ai' && player.personality">
             {{ PERSONALITY_LABELS[player.personality] }}
           </small>
@@ -69,7 +88,15 @@ function auctionStatus(
           </span>
         </span>
         <span class="player-seat__assets">
-          <b>${{ player.cash }}k</b>
+          <b
+            v-if="player.kind === 'human' || developerSettings.showAICash"
+            class="player-seat__cash"
+          >
+            ${{ player.cash }}k
+          </b>
+          <b v-else class="player-seat__cash player-seat__cash--hidden" aria-label="AI 現金已隱藏">
+            —
+          </b>
           <small>{{ player.hand.length }} 手牌 · {{ player.gallery.length }} 收藏</small>
         </span>
         <div class="player-seat__gallery" :aria-label="`${player.name} 本輪買入作品`">

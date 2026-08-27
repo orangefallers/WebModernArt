@@ -64,7 +64,7 @@ export const INITIAL_CASH = 100
 export const PERSONALITY_LABELS: Record<Personality, string> = {
   conservative: '保守派',
   balanced: '鑑賞家',
-  aggressive: '投機客',
+  aggressive: '投機派',
   chaotic: '前衛派',
 }
 

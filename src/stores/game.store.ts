@@ -16,6 +16,7 @@ import {
 } from '@/domain/game-engine'
 import { GameRuleError, type AuctionResult, type GameState, type PlayerId } from '@/domain/model'
 import { clearSave, hasSavedGame, loadGame, saveGame } from '@/services/persistence.service'
+import { getAISettings } from '@/services/settings.service'
 
 const wait = (milliseconds: number) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds))
@@ -57,10 +58,10 @@ export const useGameStore = defineStore('game', () => {
       error instanceof GameRuleError ? error.message : '發生未預期的錯誤，請再試一次。'
   }
 
-  function begin(aiCount: 2 | 3 | 4): void {
+  function begin(aiCount: 2 | 3 | 4, galleryName = '你的藝廊'): void {
     aiRunToken += 1
     clearAuctionResultNotice()
-    commit(startGame({ aiCount }))
+    commit(startGame({ aiCount, humanName: galleryName, aiPlayers: getAISettings() }))
     void runAI()
   }
 
@@ -89,9 +90,10 @@ export const useGameStore = defineStore('game', () => {
 
   function restart(aiCount?: 2 | 3 | 4): void {
     const currentAI = (game.value?.players.length ?? 4) - 1
+    const galleryName = human.value?.name ?? '你的藝廊'
     clearSave()
     savedGameAvailable.value = false
-    begin(aiCount ?? (Math.min(4, Math.max(2, currentAI)) as 2 | 3 | 4))
+    begin(aiCount ?? (Math.min(4, Math.max(2, currentAI)) as 2 | 3 | 4), galleryName)
   }
 
   function applyHuman(action: () => GameState): void {

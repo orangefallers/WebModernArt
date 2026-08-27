@@ -273,6 +273,26 @@ input:focus-visible {
   font-size: 18px;
 }
 
+.multiplayer-preview {
+  display: flex;
+  min-width: 190px;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.multiplayer-preview .button--start {
+  width: 100%;
+}
+
+.multiplayer-preview small {
+  color: rgba(27, 26, 20, 0.48);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .continue-button {
   width: 100%;
   max-width: 380px;
@@ -694,6 +714,21 @@ input:focus-visible {
   font-size: 10px;
 }
 
+.market-board .market-board__value--gold {
+  color: #9b7200;
+  font-weight: 800;
+}
+
+.market-board .market-board__value--silver {
+  color: #65717d;
+  font-weight: 800;
+}
+
+.market-board .market-board__value--bronze {
+  color: #a45832;
+  font-weight: 800;
+}
+
 .market-board__total {
   font-size: 12px;
 }
@@ -771,6 +806,47 @@ input:focus-visible {
   font-family: Georgia, serif;
   font-size: 12px;
   font-weight: 500;
+}
+
+.player-seat__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.player-seat__auctioneer-icon {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #d7a928;
+  box-shadow: inset 0 0 0 1px rgba(27, 26, 20, 0.22);
+}
+
+.player-seat__auctioneer-icon::before,
+.player-seat__auctioneer-icon::after {
+  position: absolute;
+  display: block;
+  background: var(--ink);
+  content: '';
+  transform: rotate(-36deg);
+}
+
+.player-seat__auctioneer-icon::before {
+  top: 4px;
+  left: 4px;
+  width: 9px;
+  height: 5px;
+}
+
+.player-seat__auctioneer-icon::after {
+  top: 8px;
+  left: 9px;
+  width: 2px;
+  height: 7px;
+  transform-origin: top center;
 }
 
 .player-seat__auction-status {
@@ -1817,6 +1893,18 @@ input:focus-visible {
   letter-spacing: 0.08em;
 }
 
+.result-podium .result-podium__rank--1 > strong {
+  color: #9b7200;
+}
+
+.result-podium .result-podium__rank--2 > strong {
+  color: #65717d;
+}
+
+.result-podium .result-podium__rank--3 > strong {
+  color: #a45832;
+}
+
 .result-value-history {
   display: flex;
   flex-wrap: wrap;
@@ -1897,6 +1985,15 @@ input:focus-visible {
   min-height: 48px;
   padding: 5px;
   background: white;
+}
+
+.round-sale-card--unsold {
+  background: rgba(27, 26, 20, 0.045);
+}
+
+.round-sale-card--unsold .round-sale-card__art {
+  filter: saturate(0.45);
+  opacity: 0.72;
 }
 
 .round-sale-card__art {
@@ -2034,12 +2131,40 @@ input:focus-visible {
 
 .settings-modal {
   width: min(100%, 620px);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+.settings-section + .settings-section {
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+.settings-section > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-section h3 {
+  margin: 0;
+  font-family: Georgia, serif;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.settings-section > header p {
+  margin: 0;
+  color: rgba(27, 26, 20, 0.52);
+  font-size: 9px;
 }
 
 .artist-name-settings {
   display: grid;
   gap: 8px;
-  margin: 24px 0;
+  margin: 12px 0 0;
 }
 
 .artist-name-field {
@@ -2087,13 +2212,57 @@ input:focus-visible {
   border-color: #b64137;
 }
 
-.artist-name-field > em {
+.artist-name-field__error {
   grid-column: 3;
   margin-top: -8px;
   color: #b64137;
   font-size: 9px;
   font-style: normal;
   font-weight: 700;
+}
+
+.ai-player-settings {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ai-setting-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) 108px;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-setting-row > span {
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.ai-setting-row input,
+.ai-setting-row select,
+.gallery-name-field input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0 11px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+}
+
+.ai-setting-row input[aria-invalid='true'],
+.gallery-name-field input[aria-invalid='true'] {
+  border-color: #b64137;
+}
+
+.ai-setting-row__error {
+  grid-column: 2 / -1;
+  margin-top: -8px;
+  color: #b64137;
+  font-size: 9px;
 }
 
 .settings-modal__actions {
@@ -2104,6 +2273,85 @@ input:focus-visible {
 
 .restart-confirm-modal {
   width: min(100%, 480px);
+}
+
+.gallery-name-modal {
+  width: min(100%, 500px);
+}
+
+.gallery-name-field {
+  display: grid;
+  gap: 7px;
+  margin: 26px 0;
+}
+
+.gallery-name-field > span {
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+}
+
+.gallery-name-field input {
+  height: 52px;
+  font-family: Georgia, serif;
+  font-size: 18px;
+}
+
+.gallery-name-field small {
+  min-height: 14px;
+  color: rgba(27, 26, 20, 0.48);
+  font-size: 9px;
+  text-align: right;
+}
+
+.gallery-name-field input[aria-invalid='true'] + small {
+  color: #b64137;
+}
+
+.developer-mode-modal {
+  width: min(100%, 540px);
+}
+
+.developer-toggle-list {
+  display: grid;
+  gap: 9px;
+  margin: 26px 0;
+}
+
+.developer-toggle {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 20px;
+  min-height: 68px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+}
+
+.developer-toggle > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.developer-toggle b {
+  font-family: Georgia, serif;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.developer-toggle small {
+  color: rgba(27, 26, 20, 0.52);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.developer-toggle input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--ink);
 }
 
 .restart-confirm-modal .modal-actions {
@@ -2175,6 +2423,10 @@ input:focus-visible {
   .game-setup {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .multiplayer-preview {
+    width: 100%;
   }
 
   .segmented-control button {
@@ -2288,6 +2540,24 @@ input:focus-visible {
   .artist-name-field {
     grid-template-columns: 8px 76px minmax(0, 1fr);
     gap: 8px;
+  }
+
+  .settings-section > header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ai-setting-row {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .ai-setting-row select {
+    grid-column: 2;
+  }
+
+  .ai-setting-row__error {
+    grid-column: 2;
   }
 
   .settings-modal__actions {

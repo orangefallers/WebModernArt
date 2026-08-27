@@ -1,9 +1,11 @@
 import {
   ARTIST_IDS,
+  PERSONALITY_IDS,
   type ArtistId,
   type AuctionPayout,
   type AuctionState,
   type ArtworkCard,
+  type ArtworkRoundResult,
   type ArtworkSale,
   type GameState,
   type Money,
@@ -23,8 +25,6 @@ import {
   REFILL_HAND_SIZE,
 } from '@/config/game-rules'
 import { artistDisplayName } from '@/services/settings.service'
-
-const personalities = ['conservative', 'balanced', 'aggressive', 'chaotic'] as const
 
 function emptyArtistNumbers(): Record<ArtistId, number> {
   return { yellow: 0, blue: 0, red: 0, green: 0, brown: 0 }
@@ -49,7 +49,6 @@ function log(
 ): void {
   state.log.push({ id: state.nextLogId, message, tone })
   state.nextLogId += 1
-  if (state.log.length > 80) state.log.splice(0, state.log.length - 80)
 }
 
 function clockwiseOrder(
@@ -82,14 +81,23 @@ export function startGame(options: StartGameOptions): GameState {
   const [deck, shuffledRngState] = shuffleCards(createDeck(), hashSeed(seed))
   const [auctioneerRoll, rngState] = nextRandom(shuffledRngState)
   const players: PlayerState[] = [
-    { id: 'human', name: '你的藝廊', kind: 'human', cash: INITIAL_CASH, hand: [], gallery: [] },
+    {
+      id: 'human',
+      name: options.humanName?.trim() || '你的藝廊',
+      kind: 'human',
+      cash: INITIAL_CASH,
+      hand: [],
+      gallery: [],
+    },
   ]
 
   for (let index = 0; index < options.aiCount; index += 1) {
-    const personality = personalities[index % personalities.length] ?? 'balanced'
+    const configuredAI = options.aiPlayers?.[index]
+    const personality =
+      configuredAI?.personality ?? PERSONALITY_IDS[index % PERSONALITY_IDS.length] ?? 'balanced'
     players.push({
       id: `ai-${index + 1}`,
-      name: `AI 畫商 ${index + 1}`,
+      name: configuredAI?.name.trim() || `AI 畫商 ${index + 1}`,
       kind: 'ai',
       cash: INITIAL_CASH,
       hand: [],
@@ -157,21 +165,33 @@ function scoreRound(state: GameState): void {
 
   const earnings: Record<PlayerId, Money> = {}
   const sales: Record<PlayerId, ArtworkSale[]> = {}
+  const artworks: Record<PlayerId, ArtworkRoundResult[]> = {}
   for (const player of state.players) {
     let earned = 0
     const playerSales: ArtworkSale[] = []
+    const playerArtworks: ArtworkRoundResult[] = []
     for (const entry of player.gallery) {
       const currentValue = values[entry.card.artistId]
+      let bankSalePrice: Money | undefined
       if (entry.sellableThisRound && currentValue > 0) {
         const unitPrice = currentValue + historicalValues[entry.card.artistId]
         earned += unitPrice
         playerSales.push({ card: entry.card, unitPrice })
+        bankSalePrice = unitPrice
       }
+      playerArtworks.push({
+        card: entry.card,
+        acquisition: entry.acquisition,
+        sellableThisRound: entry.sellableThisRound,
+        purchasePrice: entry.purchasePrice,
+        bankSalePrice,
+      })
     }
     player.cash += earned
     player.gallery = []
     earnings[player.id] = earned
     sales[player.id] = playerSales
+    artworks[player.id] = playerArtworks
     log(state, `${player.name} 本輪售畫收入 $${earned}k。`, 'sale')
   }
 
@@ -187,6 +207,7 @@ function scoreRound(state: GameState): void {
     counts: { ...state.roundCounts },
     earnings,
     sales,
+    artworks,
     nextAuctioneerId:
       state.round < 4 ? state.players[nextRoundAuctioneerIndex(state)]?.id : undefined,
   }
@@ -194,7 +215,12 @@ function scoreRound(state: GameState): void {
   state.phase = 'round-result'
   state.auction = null
   state.pendingDouble = null
-  log(state, `第 ${state.round} 輪落幕，市場完成結算。`, 'round')
+  const endingPlayer = state.players.find((player) => player.id === state.lastRoundEndPlayerId)
+  log(
+    state,
+    `第 ${state.round} 輪落幕，${endingPlayer ? `${endingPlayer.name} 推出本輪最後一張畫作，` : ''}市場完成結算。`,
+    'round',
+  )
 }
 
 function registerPlayedCard(state: GameState, card: ArtworkCard, playerId: PlayerId): boolean {
@@ -330,7 +356,16 @@ export function respondToDouble(
       card: pending.primaryCard,
       acquisition: 'unmatched-double',
       sellableThisRound: false,
+      purchasePrice: 0,
     })
+    state.lastAuctionResult = {
+      id: state.nextLogId,
+      kind: 'unmatched-double',
+      winnerId: owner.id,
+      amount: 0,
+      cardCount: 1,
+      payouts: [],
+    }
     log(state, `${owner.name} 免費收下未配對的聯合拍賣作品。`, 'sale')
     advanceAuctioneer(state)
   } else {
@@ -380,11 +415,19 @@ function settleAuction(state: GameState, winnerId: PlayerId, amount: Money): voi
     bankPayment = amount
   }
 
-  for (const card of auction.cards) {
-    winner.gallery.push({ card, acquisition: 'auction', sellableThisRound: true })
+  const basePurchasePrice = Math.floor(amount / auction.cards.length)
+  const purchasePriceRemainder = amount % auction.cards.length
+  for (const [index, card] of auction.cards.entries()) {
+    winner.gallery.push({
+      card,
+      acquisition: 'auction',
+      sellableThisRound: true,
+      purchasePrice: basePurchasePrice + (index < purchasePriceRemainder ? 1 : 0),
+    })
   }
   state.lastAuctionResult = {
     id: state.nextLogId,
+    kind: 'auction',
     winnerId,
     amount,
     cardCount: auction.cards.length,

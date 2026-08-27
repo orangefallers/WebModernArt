@@ -7,6 +7,13 @@ import { artistDisplayName } from '@/services/settings.service'
 
 const props = defineProps<{ game: GameState }>()
 
+function marketValueTone(value: number | null): 'gold' | 'silver' | 'bronze' | undefined {
+  if (value === 30) return 'gold'
+  if (value === 20) return 'silver'
+  if (value === 10) return 'bronze'
+  return undefined
+}
+
 const rows = computed(() =>
   ARTIST_IDS.map((artistId) => ({
     ...ARTISTS[artistId],
@@ -39,12 +46,18 @@ const rows = computed(() =>
       <span class="artist-key">
         <i :style="{ background: artist.color }"></i>
         <span
-          ><b>{{ artist.displayName }}</b
-          ><small>{{ artist.name }}</small></span
+          ><b>{{ artist.displayName }}</b></span
         >
       </span>
       <strong class="market-board__count">{{ artist.count }}/5</strong>
-      <span v-for="(value, index) in artist.history" :key="index" class="market-board__value">
+      <span
+        v-for="(value, index) in artist.history"
+        :key="index"
+        class="market-board__value"
+        :class="
+          marketValueTone(value) ? `market-board__value--${marketValueTone(value)}` : undefined
+        "
+      >
         {{ value === null ? '—' : `$${value}` }}
       </span>
       <strong class="market-board__total">${{ artist.total }}</strong>

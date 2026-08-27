@@ -1,12 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import PlayerHand from '@/components/game/PlayerHand.vue'
 import PlayerRail from '@/components/game/PlayerRail.vue'
 import { createDeck } from '@/domain/deck'
-import { startGame } from '@/domain/game-engine'
+import { playCard, startGame } from '@/domain/game-engine'
 import { artistDisplayName } from '@/services/settings.service'
+import {
+  restoreDefaultDeveloperSettings,
+  saveDeveloperSettings,
+} from '@/services/developer-settings.service'
 
 describe('player panels', () => {
+  afterEach(() => restoreDefaultDeveloperSettings())
+
   it('emits a toggle action and hides the hand when collapsed', async () => {
     const game = startGame({ aiCount: 2, seed: 'collapsible-hand' })
     const human = game.players[0]!
@@ -44,5 +50,38 @@ describe('player panels', () => {
 
     expect(artwork.text()).toContain(artistDisplayName('blue'))
     expect(artwork.attributes('title')).toBe('塔勒 · 密封出價')
+  })
+
+  it('marks the auctioneer separately while preserving the current bidder highlight', () => {
+    const game = startGame({ aiCount: 2, seed: 'auctioneer-seat-icon' })
+    game.auctioneerIndex = 1
+    const auctionCard = createDeck().find((card) => card.auctionType === 'once-around')
+    if (!auctionCard) throw new Error('expected an auction card')
+    game.players[1]!.hand = [auctionCard]
+    const auctionState = playCard(game, 'ai-1', auctionCard.id)
+
+    const wrapper = mount(PlayerRail, {
+      props: { game: auctionState, actorId: 'ai-2', thinkingPlayerId: null },
+    })
+    const seats = wrapper.findAll('.player-seat')
+
+    expect(seats[1]?.find('.player-seat__auctioneer-icon').exists()).toBe(true)
+    expect(seats[1]?.classes()).not.toContain('player-seat--active')
+    expect(seats[2]?.classes()).toContain('player-seat--active')
+    expect(seats[2]?.find('.player-seat__auctioneer-icon').exists()).toBe(false)
+  })
+
+  it('hides only AI cash when the developer setting is disabled', () => {
+    saveDeveloperSettings({ showAICash: false, showPurchaseCosts: true })
+    const game = startGame({ aiCount: 2, seed: 'hidden-ai-cash' })
+    const wrapper = mount(PlayerRail, {
+      props: { game, thinkingPlayerId: null },
+    })
+    const seats = wrapper.findAll('.player-seat')
+
+    expect(seats[0]?.get('.player-seat__cash').text()).toBe('$100k')
+    expect(seats[1]?.get('.player-seat__cash').text()).toBe('—')
+    expect(seats[1]?.text()).not.toContain('$100k')
+    expect(seats[2]?.get('.player-seat__cash').text()).toBe('—')
   })
 })

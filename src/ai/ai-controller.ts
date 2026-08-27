@@ -1,4 +1,4 @@
-import { ARTISTS } from '@/config/game-rules'
+import { ARTISTS, MARKET_AWARDS } from '@/config/game-rules'
 import { cumulativeMarketValue, validDoubleCards } from '@/domain/game-engine'
 import { nextRandom } from '@/domain/random'
 import type { ArtworkCard, GameState, Money, PlayerId } from '@/domain/model'
@@ -53,7 +53,11 @@ function maxWillingPrice(state: GameState, playerId: PlayerId, cards: ArtworkCar
   if (!player) return 0
   const factor = personalityFactor[player.personality ?? 'balanced']
   const total = cards.reduce((sum, card) => sum + artworkValuation(state, playerId, card), 0)
-  return Math.min(player.cash, Math.max(0, Math.floor(total * factor)))
+  const maximumResaleValue = cards.reduce(
+    (sum, card) => sum + cumulativeMarketValue(state, card.artistId) + MARKET_AWARDS[0],
+    0,
+  )
+  return Math.min(player.cash, maximumResaleValue, Math.max(0, Math.floor(total * factor)))
 }
 
 function chooseCard(state: GameState, playerId: PlayerId, rngState: number): [ArtworkCard, number] {
@@ -113,7 +117,7 @@ export function decideAI(state: GameState, playerId: PlayerId): AIDecision {
     const [variation, nextState] = randomBetween(rngState, 0.88, 1.08)
     return {
       type: 'sealed',
-      amount: Math.min(player.cash, Math.floor(ceiling * variation)),
+      amount: Math.min(player.cash, ceiling, Math.floor(ceiling * variation)),
       rngState: nextState,
     }
   }
@@ -130,7 +134,9 @@ export function decideAI(state: GameState, playerId: PlayerId): AIDecision {
     const [threshold, nextState] = randomBetween(rngState, 0.86, 1.04)
     return {
       type: 'fixed-response',
-      accept: auction.fixedPrice <= ceiling * threshold && auction.fixedPrice <= player.cash,
+      accept:
+        auction.fixedPrice <= Math.min(ceiling, Math.floor(ceiling * threshold)) &&
+        auction.fixedPrice <= player.cash,
       rngState: nextState,
     }
   }

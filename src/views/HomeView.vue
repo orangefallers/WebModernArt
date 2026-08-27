@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game.store'
 import RulesModal from '@/components/common/RulesModal.vue'
 import SettingsModal from '@/components/common/SettingsModal.vue'
+import GalleryNameModal from '@/components/common/GalleryNameModal.vue'
+import DeveloperModeModal from '@/components/common/DeveloperModeModal.vue'
 import { useArtistSettings } from '@/services/settings.service'
 
 const router = useRouter()
@@ -11,10 +13,14 @@ const store = useGameStore()
 const aiCount = ref<2 | 3 | 4>(3)
 const showRules = ref(false)
 const showSettings = ref(false)
+const showGalleryName = ref(false)
+const showDeveloperMode = ref(false)
+const isDevelopment = import.meta.env.DEV
 const { artistNames } = useArtistSettings()
 
-function start(): void {
-  store.begin(aiCount.value)
+function start(galleryName: string): void {
+  showGalleryName.value = false
+  store.begin(aiCount.value, galleryName)
   void router.push('/game')
 }
 
@@ -28,6 +34,9 @@ function resume(): void {
     <header class="home-nav">
       <a class="brand-mark" href="#" aria-label="現代藝術首頁"><i></i><span>MA / 92</span></a>
       <div class="home-nav__actions">
+        <button v-if="isDevelopment" class="text-button" @click="showDeveloperMode = true">
+          開發者模式
+        </button>
         <button class="text-button" @click="showSettings = true">遊戲設定</button>
         <button class="text-button" @click="showRules = true">遊戲規則</button>
       </div>
@@ -54,9 +63,20 @@ function resume(): void {
               {{ count }} AI
             </button>
           </div>
-          <button class="button button--primary button--start" @click="start">
+          <button class="button button--primary button--start" @click="showGalleryName = true">
             進入拍賣會 <span>↗</span>
           </button>
+          <div class="multiplayer-preview">
+            <button
+              class="button button--primary button--start"
+              type="button"
+              disabled
+              aria-describedby="multiplayer-coming-soon"
+            >
+              多人連線 <span>↗</span>
+            </button>
+            <small id="multiplayer-coming-soon">to be continue</small>
+          </div>
           <button v-if="store.savedGameAvailable" class="continue-button" @click="resume">
             繼續上次牌局
           </button>
@@ -90,5 +110,10 @@ function resume(): void {
 
     <RulesModal v-if="showRules" @close="showRules = false" />
     <SettingsModal v-if="showSettings" @close="showSettings = false" />
+    <GalleryNameModal v-if="showGalleryName" @close="showGalleryName = false" @start="start" />
+    <DeveloperModeModal
+      v-if="isDevelopment && showDeveloperMode"
+      @close="showDeveloperMode = false"
+    />
   </div>
 </template>

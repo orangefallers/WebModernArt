@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ARTISTS, AUCTION_LABELS, AUCTION_SYMBOLS } from '@/config/game-rules'
-import type { GameState } from '@/domain/model'
+import type { ArtworkRoundResult, GameState } from '@/domain/model'
 import { artistDisplayName } from '@/services/settings.service'
+import { useDeveloperSettings } from '@/services/developer-settings.service'
 
 const props = defineProps<{ game: GameState }>()
 defineEmits<{ continue: [] }>()
+const { developerSettings } = useDeveloperSettings()
 
 const ranked = computed(() =>
   (props.game.roundResult?.ranking ?? []).slice(0, 3).map((artistId, index) => {
@@ -31,8 +33,38 @@ const nextAuctioneer = computed(() => {
   return props.game.players.find((player) => player.id === nextAuctioneerId)
 })
 
-function playerSales(playerId: string) {
-  return props.game.roundResult?.sales?.[playerId] ?? []
+function playerArtworks(playerId: string) {
+  const completeArtworks = props.game.roundResult?.artworks?.[playerId]
+  if (completeArtworks) return completeArtworks
+  return (props.game.roundResult?.sales?.[playerId] ?? []).map((sale) => ({
+    card: sale.card,
+    acquisition: 'auction' as const,
+    sellableThisRound: true,
+    bankSalePrice: sale.unitPrice,
+  }))
+}
+
+function purchasePriceLabel(purchasePrice: number | undefined): string {
+  return purchasePrice === undefined ? '買進成本未記錄' : `買進 $${purchasePrice}k`
+}
+
+function artworkSettlementLabel(artwork: ArtworkRoundResult): string {
+  const details = [AUCTION_LABELS[artwork.card.auctionType]]
+  if (developerSettings.showPurchaseCosts) {
+    details.push(
+      artwork.acquisition === 'unmatched-double'
+        ? '免費獲得'
+        : purchasePriceLabel(artwork.purchasePrice),
+    )
+  }
+  if (artwork.bankSalePrice !== undefined) {
+    details.push(`賣給銀行 $${artwork.bankSalePrice}k`)
+  } else if (artwork.acquisition === 'unmatched-double') {
+    details.push('本輪不可出售')
+  } else {
+    details.push('未進前三名，本輪未售')
+  }
+  return details.join(' · ')
 }
 </script>
 
@@ -52,6 +84,7 @@ function playerSales(playerId: string) {
         <li
           v-for="item in ranked"
           :key="item.artist.id"
+          :class="`result-podium__rank--${item.rank}`"
           :style="{ '--rank-color': item.artist.color }"
         >
           <span>0{{ item.rank }}</span>
@@ -71,35 +104,34 @@ function playerSales(playerId: string) {
         </li>
       </ol>
 
-      <section class="round-sales" aria-label="本輪各玩家售畫明細">
+      <section class="round-sales" aria-label="本輪各玩家收藏結算明細">
         <article v-for="player in game.players" :key="player.id" class="round-sales__player">
           <header>
             <span>{{ player.name }}</span>
             <strong>本輪收入 +${{ game.roundResult?.earnings[player.id] ?? 0 }}k</strong>
           </header>
 
-          <div v-if="playerSales(player.id).length" class="round-sales__cards">
+          <div v-if="playerArtworks(player.id).length" class="round-sales__cards">
             <div
-              v-for="sale in playerSales(player.id)"
-              :key="sale.card.id"
+              v-for="artwork in playerArtworks(player.id)"
+              :key="artwork.card.id"
               class="round-sale-card"
+              :class="{ 'round-sale-card--unsold': artwork.bankSalePrice === undefined }"
               :style="{
-                '--sale-color': ARTISTS[sale.card.artistId].color,
-                '--sale-ink': ARTISTS[sale.card.artistId].ink,
+                '--sale-color': ARTISTS[artwork.card.artistId].color,
+                '--sale-ink': ARTISTS[artwork.card.artistId].ink,
               }"
             >
               <span class="round-sale-card__art">
-                <b>{{ AUCTION_SYMBOLS[sale.card.auctionType] }}</b>
+                <b>{{ AUCTION_SYMBOLS[artwork.card.auctionType] }}</b>
               </span>
               <span class="round-sale-card__detail">
-                <b>{{ artistDisplayName(sale.card.artistId) }}</b>
-                <small>
-                  {{ AUCTION_LABELS[sale.card.auctionType] }} · 賣給銀行 ${{ sale.unitPrice }}k
-                </small>
+                <b>{{ artistDisplayName(artwork.card.artistId) }}</b>
+                <small>{{ artworkSettlementLabel(artwork) }}</small>
               </span>
             </div>
           </div>
-          <p v-else class="round-sales__empty">本輪沒有賣給銀行的作品</p>
+          <p v-else class="round-sales__empty">本輪沒有買進作品</p>
         </article>
       </section>
 
