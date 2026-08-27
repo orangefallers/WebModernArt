@@ -27,7 +27,6 @@ export const useGameStore = defineStore('game', () => {
   const auctionResultNotice = ref<AuctionResult | null>(null)
   const errorMessage = ref('')
   let aiRunToken = 0
-  let auctionResultTimer: number | undefined
 
   const human = computed(() => game.value?.players.find((player) => player.kind === 'human'))
   const actorId = computed(() => (game.value ? currentActorId(game.value) : undefined))
@@ -35,18 +34,11 @@ export const useGameStore = defineStore('game', () => {
   const isHumanTurn = computed(() => actor.value?.kind === 'human')
 
   function clearAuctionResultNotice(): void {
-    if (auctionResultTimer !== undefined) window.clearTimeout(auctionResultTimer)
-    auctionResultTimer = undefined
     auctionResultNotice.value = null
   }
 
   function showAuctionResultNotice(result: AuctionResult): void {
-    clearAuctionResultNotice()
     auctionResultNotice.value = result
-    auctionResultTimer = window.setTimeout(() => {
-      auctionResultNotice.value = null
-      auctionResultTimer = undefined
-    }, 3200)
   }
 
   function commit(nextState: GameState): void {
@@ -76,8 +68,8 @@ export const useGameStore = defineStore('game', () => {
     const restored = loadGame()
     if (!restored) return false
     aiRunToken += 1
-    clearAuctionResultNotice()
     game.value = restored
+    auctionResultNotice.value = restored.lastAuctionResult ?? null
     void runAI()
     return true
   }

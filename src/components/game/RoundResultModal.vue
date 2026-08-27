@@ -2,18 +2,34 @@
 import { computed } from 'vue'
 import { ARTISTS, AUCTION_LABELS, AUCTION_SYMBOLS } from '@/config/game-rules'
 import type { GameState } from '@/domain/model'
+import { artistDisplayName } from '@/services/settings.service'
 
 const props = defineProps<{ game: GameState }>()
 defineEmits<{ continue: [] }>()
 
 const ranked = computed(() =>
-  (props.game.roundResult?.ranking ?? []).slice(0, 3).map((artistId, index) => ({
-    artist: ARTISTS[artistId],
-    count: props.game.roundResult?.counts[artistId] ?? 0,
-    value: props.game.roundResult?.values[artistId] ?? 0,
-    rank: index + 1,
-  })),
+  (props.game.roundResult?.ranking ?? []).slice(0, 3).map((artistId, index) => {
+    const round = props.game.roundResult?.round ?? props.game.round
+    const valueHistory = Array.from({ length: round }, (_, roundIndex) => {
+      const marketRound = props.game.marketHistory.find((entry) => entry.round === roundIndex + 1)
+      return { round: roundIndex + 1, value: marketRound?.values[artistId] ?? 0 }
+    })
+    return {
+      artist: ARTISTS[artistId],
+      displayName: artistDisplayName(artistId),
+      count: props.game.roundResult?.counts[artistId] ?? 0,
+      valueHistory,
+      cumulativeValue: valueHistory.reduce((sum, entry) => sum + entry.value, 0),
+      rank: index + 1,
+    }
+  }),
 )
+
+const nextAuctioneer = computed(() => {
+  const nextAuctioneerId = props.game.roundResult?.nextAuctioneerId
+  if (!nextAuctioneerId || props.game.round === 4) return undefined
+  return props.game.players.find((player) => player.id === nextAuctioneerId)
+})
 
 function playerSales(playerId: string) {
   return props.game.roundResult?.sales?.[playerId] ?? []
@@ -40,10 +56,18 @@ function playerSales(playerId: string) {
         >
           <span>0{{ item.rank }}</span>
           <div>
-            <b>{{ item.artist.zhName }}</b
+            <b>{{ item.displayName }}</b
             ><small>{{ item.count }} 件成交</small>
+            <span v-if="(game.roundResult?.round ?? 1) > 1" class="result-value-history">
+              <i v-for="entry in item.valueHistory" :key="entry.round">
+                R{{ entry.round }} ${{ entry.value }}k
+              </i>
+            </span>
           </div>
-          <strong>+${{ item.value }}k</strong>
+          <strong>
+            <small>單張累計</small>
+            ${{ item.cumulativeValue }}k
+          </strong>
         </li>
       </ol>
 
@@ -68,7 +92,7 @@ function playerSales(playerId: string) {
                 <b>{{ AUCTION_SYMBOLS[sale.card.auctionType] }}</b>
               </span>
               <span class="round-sale-card__detail">
-                <b>{{ ARTISTS[sale.card.artistId].zhName }}</b>
+                <b>{{ artistDisplayName(sale.card.artistId) }}</b>
                 <small>
                   {{ AUCTION_LABELS[sale.card.auctionType] }} · 賣給銀行 ${{ sale.unitPrice }}k
                 </small>
@@ -78,6 +102,14 @@ function playerSales(playerId: string) {
           <p v-else class="round-sales__empty">本輪沒有賣給銀行的作品</p>
         </article>
       </section>
+
+      <aside v-if="nextAuctioneer" class="next-round-auctioneer" aria-label="下一輪出牌玩家">
+        <span>Next auctioneer</span>
+        <div>
+          <small>第 {{ game.round + 1 }} 輪首位拍賣官</small>
+          <strong>{{ nextAuctioneer.name }}</strong>
+        </div>
+      </aside>
 
       <button class="button button--primary button--wide" @click="$emit('continue')">
         {{ game.round === 4 ? '查看最終排名' : `進入第 ${game.round + 1} 輪` }}

@@ -48,6 +48,7 @@ function executeDecision(state: GameState, playerId: PlayerId, decision: AIDecis
 describe('game engine', () => {
   it('accepts Vue reactive state when a player takes an action', () => {
     const game = reactive(startGame({ aiCount: 2, seed: 'vue-reactive-state' }))
+    game.auctioneerIndex = 0
     const selectedCard = game.players[0]?.hand[0]
     if (!selectedCard) throw new Error('expected a card in the human hand')
 
@@ -68,8 +69,25 @@ describe('game engine', () => {
     expect(game.players.every((player) => player.cash === 100)).toBe(true)
   })
 
+  it('selects the first auctioneer randomly and reproducibly from all players', () => {
+    const first = startGame({ aiCount: 4, seed: 'random-auctioneer' })
+    const repeated = startGame({ aiCount: 4, seed: 'random-auctioneer' })
+    const selectedIndexes = new Set(
+      Array.from(
+        { length: 30 },
+        (_, index) => startGame({ aiCount: 4, seed: `auctioneer-${index}` }).auctioneerIndex,
+      ),
+    )
+
+    expect(first.auctioneerIndex).toBe(repeated.auctioneerIndex)
+    expect(first.auctioneerIndex).toBeGreaterThanOrEqual(0)
+    expect(first.auctioneerIndex).toBeLessThan(first.players.length)
+    expect(selectedIndexes).toEqual(new Set([0, 1, 2, 3, 4]))
+  })
+
   it('ends the round immediately on the fifth card without auctioning it', () => {
     const game = startGame({ aiCount: 2, seed: 'fifth-card' })
+    game.auctioneerIndex = 0
     const finishingCard = card('yellow', 'open')
     game.players[0]!.hand = [finishingCard]
     game.roundCounts.yellow = 4
@@ -81,10 +99,17 @@ describe('game engine', () => {
     expect(result.auction).toBeNull()
     expect(result.players.every((player) => player.gallery.length === 0)).toBe(true)
     expect(result.roundResult?.values.yellow).toBe(30)
+    expect(result.roundResult?.nextAuctioneerId).toBe('ai-1')
+
+    const nextRound = continueAfterRound(result)
+    expect(nextRound.players[nextRound.auctioneerIndex]?.id).toBe(
+      result.roundResult?.nextAuctioneerId,
+    )
   })
 
   it('uses clockwise priority to break sealed bid ties', () => {
     const game = startGame({ aiCount: 2, seed: 'sealed-tie' })
+    game.auctioneerIndex = 0
     const auctionCard = card('blue', 'sealed')
     game.players[0]!.hand = [auctionCard]
     let state = playCard(game, 'human', auctionCard.id)
@@ -99,10 +124,14 @@ describe('game engine', () => {
     expect(state.players.find((player) => player.id === 'human')?.cash).toBe(110)
     expect(state.log.some((entry) => entry.message === 'AI 畫商 1 密封出價 $10k。')).toBe(true)
     expect(state.log.some((entry) => entry.message === 'AI 畫商 2 密封出價 $10k。')).toBe(true)
+    expect(state.lastAuctionResult?.payouts).toEqual([
+      { playerId: 'human', role: 'primary', amount: 10 },
+    ])
   })
 
   it('tracks public bids and pass states while rejecting bids above available cash', () => {
     const game = startGame({ aiCount: 2, seed: 'visible-bid-status' })
+    game.auctioneerIndex = 0
     const auctionCard = card('brown', 'once-around')
     game.players[0]!.hand = [auctionCard]
     let state = playCard(game, 'human', auctionCard.id)
@@ -118,6 +147,7 @@ describe('game engine', () => {
 
   it('makes the auctioneer buy a fixed-price artwork when everyone declines', () => {
     const game = startGame({ aiCount: 2, seed: 'fixed-decline' })
+    game.auctioneerIndex = 0
     const auctionCard = card('red', 'fixed-price')
     game.players[0]!.hand = [auctionCard]
     let state = playCard(game, 'human', auctionCard.id)
@@ -128,10 +158,17 @@ describe('game engine', () => {
     expect(state.players[0]?.cash).toBe(80)
     expect(state.players[0]?.gallery).toHaveLength(1)
     expect(state.phase).toBe('select-card')
+    expect(state.lastAuctionResult).toMatchObject({
+      winnerId: 'human',
+      amount: 20,
+      payouts: [],
+      bankPayment: 20,
+    })
   })
 
   it('splits joint auction revenue and gives odd remainder to the second provider', () => {
     const game = startGame({ aiCount: 2, seed: 'joint-split' })
+    game.auctioneerIndex = 0
     const jointCard = card('green', 'double')
     const secondCard = card('green', 'open')
     game.players[0]!.hand = [jointCard]
@@ -145,9 +182,12 @@ describe('game engine', () => {
       jointCard.id,
       secondCard.id,
     ])
-    state = passBid(state, 'ai-1')
+    expect(state.auction?.primaryAuctioneerId).toBe('ai-1')
+    expect(state.auction?.secondaryAuctioneerId).toBe('human')
+    expect(state.auction?.turnOrder).toEqual(['ai-2', 'human', 'ai-1'])
     state = placeBid(state, 'ai-2', 11)
     state = passBid(state, 'human')
+    state = passBid(state, 'ai-1')
 
     expect(state.players.find((player) => player.id === 'human')?.cash).toBe(105)
     expect(state.players.find((player) => player.id === 'ai-1')?.cash).toBe(106)
@@ -157,11 +197,59 @@ describe('game engine', () => {
       winnerId: 'ai-2',
       amount: 11,
       cardCount: 2,
+      payouts: [
+        { playerId: 'ai-1', role: 'primary', amount: 6 },
+        { playerId: 'human', role: 'secondary', amount: 5 },
+      ],
     })
+    expect(state.auctioneerIndex).toBe(2)
+    expect(currentActorId(state)).toBe('ai-2')
   })
+
+  it.each([
+    ['ai-1', 'primary'],
+    ['human', 'secondary'],
+  ] as const)(
+    'makes a joint-auction card provider (%s, %s) pay the bank when they win',
+    (winnerId) => {
+      const game = startGame({ aiCount: 2, seed: `joint-self-buy-${winnerId}` })
+      game.auctioneerIndex = 0
+      const jointCard = card('green', 'double')
+      const secondCard = card('green', 'open')
+      game.players[0]!.hand = [jointCard]
+      game.players[1]!.hand = [secondCard]
+
+      let state = playCard(game, 'human', jointCard.id)
+      state = respondToDouble(state, 'human')
+      state = respondToDouble(state, 'ai-1', secondCard.id)
+      state = passBid(state, 'ai-2')
+      if (winnerId === 'human') {
+        state = placeBid(state, 'human', 11)
+        state = passBid(state, 'ai-1')
+      } else {
+        state = passBid(state, 'human')
+        state = placeBid(state, 'ai-1', 11)
+      }
+
+      expect(state.lastAuctionResult).toMatchObject({
+        winnerId,
+        amount: 11,
+        payouts:
+          winnerId === 'ai-1'
+            ? [{ playerId: 'human', role: 'secondary', amount: 5 }]
+            : [{ playerId: 'ai-1', role: 'primary', amount: 6 }],
+        bankPayment: winnerId === 'ai-1' ? 6 : 5,
+      })
+      expect(state.players.find((player) => player.id === winnerId)?.cash).toBe(89)
+      expect(
+        state.players.find((player) => player.id === (winnerId === 'human' ? 'ai-1' : 'human')),
+      ).toMatchObject({ cash: winnerId === 'human' ? 106 : 105 })
+    },
+  )
 
   it('records each artwork sold to the bank before clearing player galleries', () => {
     const game = startGame({ aiCount: 2, seed: 'round-sales' })
+    game.auctioneerIndex = 0
     const soldCard = card('yellow', 'sealed')
     const finishingCard = card('yellow', 'open')
     game.players[0]!.gallery = [{ card: soldCard, acquisition: 'auction', sellableThisRound: true }]

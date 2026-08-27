@@ -163,6 +163,12 @@ input:focus-visible {
   border-bottom: 1px solid var(--line);
 }
 
+.home-nav__actions {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
 .hero {
   display: grid;
   grid-template-columns: minmax(420px, 0.88fr) minmax(500px, 1.12fr);
@@ -1024,31 +1030,64 @@ input:focus-visible {
 .auction-result-notice {
   position: relative;
   z-index: 4;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 12px;
-  width: min(100%, 420px);
+  align-self: flex-end;
+  width: min(300px, 100%);
   margin-top: 12px;
-  padding: 9px 12px;
+  padding: 11px 12px;
   color: var(--ink);
   background: var(--acid);
   box-shadow: 5px 5px 0 rgba(247, 244, 235, 0.18);
 }
 
-.auction-result-notice span {
+.auction-result-notice__eyebrow {
+  display: block;
+  margin-bottom: 5px;
   font-size: 7px;
   font-weight: 900;
   letter-spacing: 0.12em;
 }
 
-.auction-result-notice strong {
+.auction-result-notice__headline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.auction-result-notice__headline strong {
   font-family: Georgia, serif;
   font-size: 14px;
   font-weight: 500;
 }
 
-.auction-result-notice b {
+.auction-result-notice__headline b {
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.auction-result-notice__ledger {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(27, 26, 20, 0.22);
+}
+
+.auction-result-notice__ledger > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 8px;
+}
+
+.auction-result-notice__ledger span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auction-result-notice__ledger b {
   font-size: 9px;
   white-space: nowrap;
 }
@@ -1350,6 +1389,169 @@ input:focus-visible {
   transform: rotate(-16deg);
 }
 
+/* Each artist owns a distinct visual language, kept consistent across their editions. */
+.art-card--artist-yellow .art-card__shape--one {
+  top: -12%;
+  left: 38%;
+  width: 22%;
+  height: 120%;
+  background: var(--ink);
+  transform: rotate(31deg);
+}
+
+.art-card--artist-yellow .art-card__shape--two {
+  right: -10%;
+  bottom: 20%;
+  width: 78%;
+  height: 40%;
+  border: 0;
+  border-radius: 50%;
+  background: #f06f51;
+}
+
+.art-card--artist-yellow .art-card__shape--three {
+  top: 27%;
+  left: -12%;
+  width: 82%;
+  height: 9%;
+  background: var(--paper-light);
+  transform: rotate(-14deg);
+}
+
+.art-card--artist-blue .art-card__canvas {
+  background: linear-gradient(145deg, transparent 58%, rgba(247, 244, 235, 0.22) 58%);
+}
+
+.art-card--artist-blue .art-card__shape--one {
+  top: 17%;
+  left: 16%;
+  width: 70%;
+  height: 50%;
+  border: 12px solid var(--paper-light);
+  border-radius: 50%;
+  background: transparent;
+  transform: none;
+}
+
+.art-card--artist-blue .art-card__shape--two {
+  top: 28%;
+  right: 27%;
+  bottom: auto;
+  width: 30%;
+  height: 22%;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.art-card--artist-blue .art-card__shape--three {
+  top: 7%;
+  left: 46%;
+  width: 8%;
+  height: 78%;
+  background: #d7ed55;
+  transform: rotate(38deg);
+}
+
+.art-card--artist-red .art-card__shape--one {
+  top: 13%;
+  left: 11%;
+  width: 78%;
+  height: 54%;
+  border: 9px solid var(--ink);
+  background: transparent;
+  transform: rotate(-7deg);
+}
+
+.art-card--artist-red .art-card__shape--two {
+  right: -17%;
+  bottom: 14%;
+  width: 73%;
+  height: 55%;
+  border: 0;
+  border-radius: 50% 50% 0 0;
+  background: var(--paper-light);
+  transform: rotate(18deg);
+}
+
+.art-card--artist-red .art-card__shape--three {
+  top: 24%;
+  left: 29%;
+  width: 28%;
+  height: 58%;
+  background: #6d45a5;
+  transform: rotate(43deg);
+}
+
+.art-card--artist-green .art-card__shape--one {
+  top: 5%;
+  left: 47%;
+  width: 8%;
+  height: 83%;
+  border-radius: 999px;
+  background: var(--paper-light);
+  transform: rotate(8deg);
+}
+
+.art-card--artist-green .art-card__shape--two {
+  top: 19%;
+  right: 14%;
+  bottom: auto;
+  width: 42%;
+  height: 24%;
+  border: 0;
+  border-radius: 90% 10% 90% 10%;
+  background: #f0b847;
+  transform: rotate(-12deg);
+}
+
+.art-card--artist-green .art-card__shape--three {
+  top: 46%;
+  left: 12%;
+  width: 45%;
+  height: 25%;
+  border-radius: 10% 90% 10% 90%;
+  background: var(--ink);
+  transform: rotate(18deg);
+}
+
+.art-card--artist-brown .art-card__canvas {
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 17%,
+    rgba(247, 244, 235, 0.18) 17% 19%
+  );
+}
+
+.art-card--artist-brown .art-card__shape--one {
+  top: 11%;
+  left: 12%;
+  width: 31%;
+  height: 63%;
+  background: var(--paper-light);
+  transform: none;
+}
+
+.art-card--artist-brown .art-card__shape--two {
+  top: 23%;
+  right: 12%;
+  bottom: auto;
+  width: 39%;
+  height: 51%;
+  border: 0;
+  border-radius: 0;
+  background: #e87858;
+}
+
+.art-card--artist-brown .art-card__shape--three {
+  top: 36%;
+  left: 22%;
+  width: 67%;
+  height: 13%;
+  background: var(--ink);
+  transform: none;
+}
+
 .art-card__artist {
   position: absolute;
   z-index: 3;
@@ -1602,6 +1804,35 @@ input:focus-visible {
   font-size: 15px;
 }
 
+.result-podium li > strong {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.result-podium li > strong small {
+  color: rgba(27, 26, 20, 0.45);
+  font-size: 7px;
+  letter-spacing: 0.08em;
+}
+
+.result-value-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.result-value-history i {
+  padding: 2px 4px;
+  color: rgba(27, 26, 20, 0.68);
+  background: rgba(27, 26, 20, 0.07);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 700;
+}
+
 .earnings-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1712,6 +1943,46 @@ input:focus-visible {
   text-align: center;
 }
 
+.next-round-auctioneer {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--ink);
+  border-left: 8px solid var(--acid);
+  background: white;
+}
+
+.next-round-auctioneer > span {
+  padding: 4px 7px;
+  color: var(--paper-light);
+  background: var(--ink);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.next-round-auctioneer div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.next-round-auctioneer small {
+  color: rgba(27, 26, 20, 0.5);
+  font-size: 9px;
+}
+
+.next-round-auctioneer strong {
+  font-family: Georgia, serif;
+  font-size: 17px;
+  font-weight: 500;
+}
+
 .modal-close {
   position: absolute;
   top: 16px;
@@ -1758,6 +2029,76 @@ input:focus-visible {
 
 .modal-actions {
   display: flex;
+  gap: 10px;
+}
+
+.settings-modal {
+  width: min(100%, 620px);
+}
+
+.artist-name-settings {
+  display: grid;
+  gap: 8px;
+  margin: 24px 0;
+}
+
+.artist-name-field {
+  display: grid;
+  grid-template-columns: 10px 100px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.artist-name-field > i {
+  align-self: stretch;
+  min-height: 48px;
+}
+
+.artist-name-field > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.artist-name-field > span b {
+  overflow: hidden;
+  font-family: Georgia, serif;
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+
+.artist-name-field > span small {
+  color: rgba(27, 26, 20, 0.45);
+  font-size: 8px;
+}
+
+.artist-name-field input {
+  width: 100%;
+  height: 44px;
+  border: 1px solid var(--line);
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.35);
+  font-size: 13px;
+}
+
+.artist-name-field input[aria-invalid='true'] {
+  border-color: #b64137;
+}
+
+.artist-name-field > em {
+  grid-column: 3;
+  margin-top: -8px;
+  color: #b64137;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.settings-modal__actions {
+  display: flex;
+  justify-content: space-between;
   gap: 10px;
 }
 
@@ -1932,16 +2273,25 @@ input:focus-visible {
   }
 
   .auction-result-notice {
-    grid-template-columns: 1fr auto;
+    align-self: stretch;
   }
 
-  .auction-result-notice span {
-    display: none;
+  .auction-result-notice__eyebrow {
+    display: block;
   }
 
   .rules-columns {
     grid-template-columns: 1fr;
     gap: 14px;
+  }
+
+  .artist-name-field {
+    grid-template-columns: 8px 76px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .settings-modal__actions {
+    flex-direction: column;
   }
 
   .round-sales {

@@ -1,6 +1,7 @@
 import {
   ARTIST_IDS,
   type ArtistId,
+  type AuctionPayout,
   type AuctionState,
   type ArtworkCard,
   type ArtworkSale,
@@ -13,7 +14,7 @@ import {
   GameRuleError,
 } from './model'
 import { createDeck } from './deck'
-import { hashSeed, shuffleCards } from './random'
+import { hashSeed, nextRandom, shuffleCards } from './random'
 import {
   ARTISTS,
   INITIAL_CASH,
@@ -21,6 +22,7 @@ import {
   MARKET_AWARDS,
   REFILL_HAND_SIZE,
 } from '@/config/game-rules'
+import { artistDisplayName } from '@/services/settings.service'
 
 const personalities = ['conservative', 'balanced', 'aggressive', 'chaotic'] as const
 
@@ -77,7 +79,8 @@ function drawToPlayers(state: GameState, countPerPlayer: number): void {
 
 export function startGame(options: StartGameOptions): GameState {
   const seed = options.seed ?? `${Date.now()}-${Math.random()}`
-  const [deck, rngState] = shuffleCards(createDeck(), hashSeed(seed))
+  const [deck, shuffledRngState] = shuffleCards(createDeck(), hashSeed(seed))
+  const [auctioneerRoll, rngState] = nextRandom(shuffledRngState)
   const players: PlayerState[] = [
     { id: 'human', name: '你的藝廊', kind: 'human', cash: INITIAL_CASH, hand: [], gallery: [] },
   ]
@@ -102,7 +105,7 @@ export function startGame(options: StartGameOptions): GameState {
     phase: 'select-card',
     round: 1,
     players,
-    auctioneerIndex: 0,
+    auctioneerIndex: Math.floor(auctioneerRoll * players.length),
     deck,
     roundCounts: emptyArtistNumbers(),
     marketHistory: [],
@@ -114,7 +117,11 @@ export function startGame(options: StartGameOptions): GameState {
   }
 
   drawToPlayers(state, INITIAL_HAND_SIZE[players.length as 3 | 4 | 5])
-  log(state, `第 1 輪開始。每位畫商帶著 $${INITIAL_CASH}k 進場。`, 'round')
+  log(
+    state,
+    `第 1 輪開始。${players[state.auctioneerIndex]?.name ?? '畫商'} 擔任首位拍賣官。`,
+    'round',
+  )
   return state
 }
 
@@ -124,6 +131,13 @@ function removeCard(player: PlayerState, cardId: string): ArtworkCard {
   const [card] = player.hand.splice(index, 1)
   if (!card) throw new GameRuleError('CARD_NOT_IN_HAND', '無法取得這張畫作。')
   return card
+}
+
+function nextRoundAuctioneerIndex(state: GameState): number {
+  const endingPlayerIndex = state.players.findIndex(
+    (player) => player.id === state.lastRoundEndPlayerId,
+  )
+  return endingPlayerIndex >= 0 ? (endingPlayerIndex + 1) % state.players.length : 0
 }
 
 function scoreRound(state: GameState): void {
@@ -173,6 +187,8 @@ function scoreRound(state: GameState): void {
     counts: { ...state.roundCounts },
     earnings,
     sales,
+    nextAuctioneerId:
+      state.round < 4 ? state.players[nextRoundAuctioneerIndex(state)]?.id : undefined,
   }
   state.roundResult = result
   state.phase = 'round-result'
@@ -184,10 +200,10 @@ function scoreRound(state: GameState): void {
 function registerPlayedCard(state: GameState, card: ArtworkCard, playerId: PlayerId): boolean {
   state.roundCounts[card.artistId] += 1
   const player = playerById(state, playerId)
-  log(state, `${player.name} 推出 ${ARTISTS[card.artistId].zhName} 的作品。`)
+  log(state, `${player.name} 推出 ${artistDisplayName(card.artistId)} 的作品。`)
   if (state.roundCounts[card.artistId] >= 5) {
     state.lastRoundEndPlayerId = playerId
-    log(state, `${ARTISTS[card.artistId].zhName} 的第 5 張作品登場，本輪立即結束！`, 'round')
+    log(state, `${artistDisplayName(card.artistId)} 的第 5 張作品登場，本輪立即結束！`, 'round')
     scoreRound(state)
     return true
   }
@@ -206,7 +222,7 @@ function createAuction(
   }
   const type = determiningCard.auctionType
   let turnOrder = clockwiseOrder(state, primaryAuctioneerId)
-  const priceSetterId = secondaryAuctioneerId ?? primaryAuctioneerId
+  const priceSetterId = primaryAuctioneerId
 
   if (type === 'fixed-price') {
     turnOrder = clockwiseOrder(state, priceSetterId).filter(
@@ -261,7 +277,13 @@ export function playCard(inputState: GameState, playerId: PlayerId, cardId: stri
 }
 
 function advanceAuctioneer(state: GameState): void {
-  state.auctioneerIndex = (state.auctioneerIndex + 1) % state.players.length
+  const currentAuctioneerId =
+    state.auction?.primaryAuctioneerId ?? state.pendingDouble?.primaryAuctioneerId
+  const currentAuctioneerIndex = state.players.findIndex(
+    (player) => player.id === currentAuctioneerId,
+  )
+  const baseIndex = currentAuctioneerIndex >= 0 ? currentAuctioneerIndex : state.auctioneerIndex
+  state.auctioneerIndex = (baseIndex + 1) % state.players.length
   state.auction = null
   state.pendingDouble = null
   state.phase = 'select-card'
@@ -295,8 +317,8 @@ export function respondToDouble(
     createAuction(
       state,
       [pending.primaryCard, secondCard],
-      pending.primaryAuctioneerId,
-      playerId === pending.primaryAuctioneerId ? undefined : playerId,
+      playerId,
+      playerId === pending.primaryAuctioneerId ? undefined : pending.primaryAuctioneerId,
     )
     return state
   }
@@ -326,13 +348,36 @@ function settleAuction(state: GameState, winnerId: PlayerId, amount: Money): voi
   }
 
   winner.cash -= amount
+  const payouts: AuctionPayout[] = []
+  let bankPayment: Money | undefined
   if (auction.secondaryAuctioneerId) {
-    const secondaryShare = Math.ceil(amount / 2)
-    const primaryShare = amount - secondaryShare
-    playerById(state, auction.primaryAuctioneerId).cash += primaryShare
-    playerById(state, auction.secondaryAuctioneerId).cash += secondaryShare
+    const primaryShare = Math.ceil(amount / 2)
+    const secondaryShare = amount - primaryShare
+    if (winnerId === auction.primaryAuctioneerId) {
+      playerById(state, auction.secondaryAuctioneerId).cash += secondaryShare
+      payouts.push({
+        playerId: auction.secondaryAuctioneerId,
+        role: 'secondary',
+        amount: secondaryShare,
+      })
+      bankPayment = primaryShare
+    } else if (winnerId === auction.secondaryAuctioneerId) {
+      playerById(state, auction.primaryAuctioneerId).cash += primaryShare
+      payouts.push({ playerId: auction.primaryAuctioneerId, role: 'primary', amount: primaryShare })
+      bankPayment = secondaryShare
+    } else {
+      playerById(state, auction.primaryAuctioneerId).cash += primaryShare
+      playerById(state, auction.secondaryAuctioneerId).cash += secondaryShare
+      payouts.push(
+        { playerId: auction.primaryAuctioneerId, role: 'primary', amount: primaryShare },
+        { playerId: auction.secondaryAuctioneerId, role: 'secondary', amount: secondaryShare },
+      )
+    }
   } else if (winnerId !== auction.primaryAuctioneerId) {
     playerById(state, auction.primaryAuctioneerId).cash += amount
+    payouts.push({ playerId: auction.primaryAuctioneerId, role: 'primary', amount })
+  } else {
+    bankPayment = amount
   }
 
   for (const card of auction.cards) {
@@ -343,6 +388,8 @@ function settleAuction(state: GameState, winnerId: PlayerId, amount: Money): voi
     winnerId,
     amount,
     cardCount: auction.cards.length,
+    payouts,
+    bankPayment,
   }
   log(state, `${winner.name} 以 $${amount}k 得標 ${auction.cards.length} 張作品。`, 'sale')
   advanceAuctioneer(state)
@@ -521,11 +568,7 @@ export function continueAfterRound(inputState: GameState): GameState {
     return state
   }
 
-  const endingPlayerIndex = state.players.findIndex(
-    (player) => player.id === state.lastRoundEndPlayerId,
-  )
-  state.auctioneerIndex =
-    endingPlayerIndex >= 0 ? (endingPlayerIndex + 1) % state.players.length : 0
+  state.auctioneerIndex = nextRoundAuctioneerIndex(state)
   state.round = (state.round + 1) as 2 | 3 | 4
   state.roundCounts = emptyArtistNumbers()
   state.roundResult = null

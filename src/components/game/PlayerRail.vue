@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ARTISTS, AUCTION_LABELS, AUCTION_SYMBOLS, PERSONALITY_LABELS } from '@/config/game-rules'
 import type { GameState, PlayerId } from '@/domain/model'
+import { artistDisplayName } from '@/services/settings.service'
 
 const props = defineProps<{
   game: GameState
@@ -84,10 +85,10 @@ function auctionStatus(
                 '--gallery-color': ARTISTS[entry.card.artistId].color,
                 '--gallery-ink': ARTISTS[entry.card.artistId].ink,
               }"
-              :title="`${ARTISTS[entry.card.artistId].zhName} · ${AUCTION_LABELS[entry.card.auctionType]}`"
+              :title="`${artistDisplayName(entry.card.artistId)} · ${AUCTION_LABELS[entry.card.auctionType]}`"
             >
               <b>{{ AUCTION_SYMBOLS[entry.card.auctionType] }}</b>
-              <small>{{ ARTISTS[entry.card.artistId].name }}</small>
+              <small>{{ artistDisplayName(entry.card.artistId) }}</small>
             </span>
           </template>
         </div>

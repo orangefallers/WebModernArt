@@ -3,11 +3,15 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game.store'
 import RulesModal from '@/components/common/RulesModal.vue'
+import SettingsModal from '@/components/common/SettingsModal.vue'
+import { useArtistSettings } from '@/services/settings.service'
 
 const router = useRouter()
 const store = useGameStore()
 const aiCount = ref<2 | 3 | 4>(3)
 const showRules = ref(false)
+const showSettings = ref(false)
+const { artistNames } = useArtistSettings()
 
 function start(): void {
   store.begin(aiCount.value)
@@ -23,7 +27,10 @@ function resume(): void {
   <div class="home-page">
     <header class="home-nav">
       <a class="brand-mark" href="#" aria-label="現代藝術首頁"><i></i><span>MA / 92</span></a>
-      <button class="text-button" @click="showRules = true">遊戲規則</button>
+      <div class="home-nav__actions">
+        <button class="text-button" @click="showSettings = true">遊戲設定</button>
+        <button class="text-button" @click="showRules = true">遊戲規則</button>
+      </div>
     </header>
 
     <main class="hero">
@@ -58,9 +65,18 @@ function resume(): void {
 
       <section class="hero-gallery" aria-label="抽象藝術展覽預覽">
         <div class="hero-gallery__label hero-gallery__label--top">PRIVATE VIEW · TAIPEI</div>
-        <div class="hero-art hero-art--yellow"><i></i><b>Carvalho</b><small>No. 12</small></div>
-        <div class="hero-art hero-art--red"><i></i><b>Melim</b><small>No. 27</small></div>
-        <div class="hero-art hero-art--blue"><i></i><b>Thaler</b><small>No. 08</small></div>
+        <div class="hero-art hero-art--yellow">
+          <i></i><b>{{ artistNames.yellow }}</b
+          ><small>No. 12</small>
+        </div>
+        <div class="hero-art hero-art--red">
+          <i></i><b>{{ artistNames.red }}</b
+          ><small>No. 27</small>
+        </div>
+        <div class="hero-art hero-art--blue">
+          <i></i><b>{{ artistNames.blue }}</b
+          ><small>No. 08</small>
+        </div>
         <div class="hero-gallery__stamp"><span>4</span><small>ROUNDS</small></div>
         <div class="hero-gallery__label hero-gallery__label--bottom">
           EST. 1992 · THE MARKET IS OPEN
@@ -73,5 +89,6 @@ function resume(): void {
     </footer>
 
     <RulesModal v-if="showRules" @close="showRules = false" />
+    <SettingsModal v-if="showSettings" @close="showSettings = false" />
   </div>
 </template>

@@ -24,6 +24,21 @@ const auctionWinner = computed(() =>
   game.value?.players.find((player) => player.id === auctionResultNotice.value?.winnerId),
 )
 
+const auctionPayouts = computed(() => {
+  const payouts = auctionResultNotice.value?.payouts ?? []
+  const isJointAuction = auctionResultNotice.value?.cardCount === 2
+  return payouts.map((payout) => ({
+    ...payout,
+    playerName:
+      game.value?.players.find((player) => player.id === payout.playerId)?.name ?? payout.playerId,
+    roleLabel: isJointAuction
+      ? payout.role === 'primary'
+        ? '主要拍賣官'
+        : '次要出牌玩家'
+      : '拍賣官',
+  }))
+})
+
 const displayedCards = computed(() => {
   if (!game.value) return []
   if (game.value.auction) return game.value.auction.cards
@@ -131,9 +146,24 @@ function submitAmount(): void {
 
     <Transition name="auction-result">
       <div v-if="auctionResultNotice && auctionWinner" class="auction-result-notice" role="status">
-        <span>HAMMER DOWN</span>
-        <strong>{{ auctionWinner.name }} 得標</strong>
-        <b>${{ auctionResultNotice.amount }}k · {{ auctionResultNotice.cardCount }} 張作品</b>
+        <span class="auction-result-notice__eyebrow">HAMMER DOWN</span>
+        <div class="auction-result-notice__headline">
+          <strong>{{ auctionWinner.name }} 得標</strong>
+          <b>${{ auctionResultNotice.amount }}k · {{ auctionResultNotice.cardCount }} 張作品</b>
+        </div>
+        <div
+          v-if="auctionPayouts.length || auctionResultNotice.bankPayment !== undefined"
+          class="auction-result-notice__ledger"
+        >
+          <div v-for="payout in auctionPayouts" :key="`${payout.role}-${payout.playerId}`">
+            <span>{{ payout.roleLabel }} · {{ payout.playerName }}</span>
+            <b>獲得 ${{ payout.amount }}k</b>
+          </div>
+          <div v-if="auctionResultNotice.bankPayment !== undefined">
+            <span>得標拍賣官 · {{ auctionWinner.name }}</span>
+            <b>支付銀行 ${{ auctionResultNotice.bankPayment }}k</b>
+          </div>
+        </div>
       </div>
     </Transition>
 

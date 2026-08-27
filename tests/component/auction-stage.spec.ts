@@ -37,7 +37,7 @@ describe('AuctionStage', () => {
     expect(wrapper.get('button.button--primary').attributes('disabled')).toBeDefined()
   })
 
-  it('shows the winner and purchase amount after an auction settles', async () => {
+  it('shows the winner and purchase amount after an auction settles', () => {
     const store = useGameStore()
     store.game = startGame({ aiCount: 2, seed: 'auction-result-notice' })
     store.auctionResultNotice = {
@@ -45,11 +45,58 @@ describe('AuctionStage', () => {
       winnerId: 'ai-1',
       amount: 24,
       cardCount: 2,
+      payouts: [
+        { playerId: 'human', role: 'primary', amount: 12 },
+        { playerId: 'ai-2', role: 'secondary', amount: 12 },
+      ],
     }
 
     const wrapper = mount(AuctionStage)
 
     expect(wrapper.get('.auction-result-notice').text()).toContain('AI 畫商 1 得標')
     expect(wrapper.get('.auction-result-notice').text()).toContain('$24k · 2 張作品')
+    expect(wrapper.get('.auction-result-notice').text()).toContain('主要拍賣官 · 你的藝廊')
+    expect(wrapper.get('.auction-result-notice').text()).toContain('獲得 $12k')
+    expect(wrapper.get('.auction-result-notice').text()).toContain('次要出牌玩家 · AI 畫商 2')
+    expect(wrapper.get('.auction-result-notice').classes()).toContain('auction-result-notice')
+  })
+
+  it('shows a bank payment when the auctioneer buys their own artwork', () => {
+    const store = useGameStore()
+    store.game = startGame({ aiCount: 2, seed: 'auctioneer-bank-payment' })
+    store.auctionResultNotice = {
+      id: 100,
+      winnerId: 'human',
+      amount: 18,
+      cardCount: 1,
+      payouts: [],
+      bankPayment: 18,
+    }
+
+    const wrapper = mount(AuctionStage)
+
+    expect(wrapper.get('.auction-result-notice').text()).toContain('得標拍賣官 · 你的藝廊')
+    expect(wrapper.get('.auction-result-notice').text()).toContain('支付銀行 $18k')
+  })
+
+  it('shows both the other auctioneer payout and the winner bank payment', () => {
+    const store = useGameStore()
+    store.game = startGame({ aiCount: 2, seed: 'joint-auctioneer-self-buy' })
+    store.auctionResultNotice = {
+      id: 101,
+      winnerId: 'human',
+      amount: 11,
+      cardCount: 2,
+      payouts: [{ playerId: 'ai-1', role: 'primary', amount: 6 }],
+      bankPayment: 5,
+    }
+
+    const wrapper = mount(AuctionStage)
+    const notice = wrapper.get('.auction-result-notice').text()
+
+    expect(notice).toContain('主要拍賣官 · AI 畫商 1')
+    expect(notice).toContain('獲得 $6k')
+    expect(notice).toContain('得標拍賣官 · 你的藝廊')
+    expect(notice).toContain('支付銀行 $5k')
   })
 })

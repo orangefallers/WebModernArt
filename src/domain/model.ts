@@ -62,6 +62,8 @@ export interface RoundResult {
   earnings: Record<PlayerId, Money>
   /** Optional so saves created before sale details were introduced still load safely. */
   sales?: Record<PlayerId, ArtworkSale[]>
+  /** Optional so saves created before the next-round preview was introduced still load safely. */
+  nextAuctioneerId?: PlayerId
 }
 
 export interface GameLogEntry {
@@ -92,11 +94,20 @@ export interface AuctionState {
   priceSetterId?: PlayerId
 }
 
+export interface AuctionPayout {
+  playerId: PlayerId
+  role: 'primary' | 'secondary'
+  amount: Money
+}
+
 export interface AuctionResult {
   id: number
   winnerId: PlayerId
   amount: Money
   cardCount: number
+  /** Optional so saves created before settlement details were introduced still load safely. */
+  payouts?: AuctionPayout[]
+  bankPayment?: Money
 }
 
 export interface GameState {

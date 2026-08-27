@@ -4,6 +4,7 @@ import PlayerHand from '@/components/game/PlayerHand.vue'
 import PlayerRail from '@/components/game/PlayerRail.vue'
 import { createDeck } from '@/domain/deck'
 import { startGame } from '@/domain/game-engine'
+import { artistDisplayName } from '@/services/settings.service'
 
 describe('player panels', () => {
   it('emits a toggle action and hides the hand when collapsed', async () => {
@@ -41,7 +42,7 @@ describe('player panels', () => {
     })
     const artwork = wrapper.get('.player-seat__gallery-card')
 
-    expect(artwork.text()).toContain('Thaler')
+    expect(artwork.text()).toContain(artistDisplayName('blue'))
     expect(artwork.attributes('title')).toBe('塔勒 · 密封出價')
   })
 })

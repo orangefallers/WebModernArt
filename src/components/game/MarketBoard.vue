@@ -3,12 +3,14 @@ import { computed } from 'vue'
 import { ARTIST_IDS, type GameState } from '@/domain/model'
 import { ARTISTS } from '@/config/game-rules'
 import { cumulativeMarketValue } from '@/domain/game-engine'
+import { artistDisplayName } from '@/services/settings.service'
 
 const props = defineProps<{ game: GameState }>()
 
 const rows = computed(() =>
   ARTIST_IDS.map((artistId) => ({
     ...ARTISTS[artistId],
+    displayName: artistDisplayName(artistId),
     count: props.game.roundCounts[artistId],
     history: [1, 2, 3, 4].map(
       (round) =>
@@ -37,7 +39,7 @@ const rows = computed(() =>
       <span class="artist-key">
         <i :style="{ background: artist.color }"></i>
         <span
-          ><b>{{ artist.zhName }}</b
+          ><b>{{ artist.displayName }}</b
           ><small>{{ artist.name }}</small></span
         >
       </span>
