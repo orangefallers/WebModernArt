@@ -9,6 +9,7 @@ const props = defineProps<{
   game: GameState
   actorId?: PlayerId
   thinkingPlayerId: PlayerId | null
+  latestWinnerId?: PlayerId
 }>()
 
 const currentAuctioneerId = computed(
@@ -58,6 +59,7 @@ function auctionStatus(
         :class="{
           'player-seat--active': player.id === actorId,
           'player-seat--human': player.kind === 'human',
+          'player-seat--latest-winner': player.id === latestWinnerId,
         }"
       >
         <span class="player-seat__number">0{{ index + 1 }}</span>

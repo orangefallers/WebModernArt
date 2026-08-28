@@ -6,8 +6,7 @@ import { useGameStore } from '@/stores/game.store'
 import ArtworkCard from './ArtworkCard.vue'
 
 const store = useGameStore()
-const { game, actor, isHumanTurn, thinkingPlayerId, human, auctionResultNotice } =
-  storeToRefs(store)
+const { game, actor, isHumanTurn, thinkingPlayerId, human } = storeToRefs(store)
 const amountInput = ref<string | number>('1')
 
 const auctioneer = computed(() => {
@@ -18,29 +17,6 @@ const auctioneer = computed(() => {
     state.pendingDouble?.primaryAuctioneerId ??
     state.players[state.auctioneerIndex]?.id
   return state.players.find((player) => player.id === auctioneerId)
-})
-
-const auctionWinner = computed(() =>
-  game.value?.players.find((player) => player.id === auctionResultNotice.value?.winnerId),
-)
-
-const isUnmatchedDoubleResult = computed(
-  () => auctionResultNotice.value?.kind === 'unmatched-double',
-)
-
-const auctionPayouts = computed(() => {
-  const payouts = auctionResultNotice.value?.payouts ?? []
-  const isJointAuction = auctionResultNotice.value?.cardCount === 2
-  return payouts.map((payout) => ({
-    ...payout,
-    playerName:
-      game.value?.players.find((player) => player.id === payout.playerId)?.name ?? payout.playerId,
-    roleLabel: isJointAuction
-      ? payout.role === 'primary'
-        ? '主要拍賣官'
-        : '次要出牌玩家'
-      : '拍賣官',
-  }))
 })
 
 const displayedCards = computed(() => {
@@ -147,48 +123,6 @@ function submitAmount(): void {
         <strong>{{ auctioneer.name }}</strong>
       </div>
     </div>
-
-    <Transition name="auction-result">
-      <div v-if="auctionResultNotice && auctionWinner" class="auction-result-notice" role="status">
-        <span class="auction-result-notice__eyebrow">HAMMER DOWN</span>
-        <div class="auction-result-notice__headline">
-          <strong>
-            {{ auctionWinner.name }}{{ isUnmatchedDoubleResult ? ' 免費獲得' : ' 得標' }}
-          </strong>
-          <b v-if="isUnmatchedDoubleResult">
-            未配對聯合拍賣 · {{ auctionResultNotice.cardCount }} 張作品
-          </b>
-          <b v-else
-            >${{ auctionResultNotice.amount }}k · {{ auctionResultNotice.cardCount }} 張作品</b
-          >
-        </div>
-        <div
-          v-if="
-            isUnmatchedDoubleResult ||
-            auctionPayouts.length ||
-            auctionResultNotice.bankPayment !== undefined
-          "
-          class="auction-result-notice__ledger"
-        >
-          <template v-if="isUnmatchedDoubleResult">
-            <div>
-              <span>聯合拍賣無人補牌</span>
-              <b>支付 $0k</b>
-            </div>
-          </template>
-          <template v-else>
-            <div v-for="payout in auctionPayouts" :key="`${payout.role}-${payout.playerId}`">
-              <span>{{ payout.roleLabel }} · {{ payout.playerName }}</span>
-              <b>獲得 ${{ payout.amount }}k</b>
-            </div>
-            <div v-if="auctionResultNotice.bankPayment !== undefined">
-              <span>得標拍賣官 · {{ auctionWinner.name }}</span>
-              <b>支付銀行 ${{ auctionResultNotice.bankPayment }}k</b>
-            </div>
-          </template>
-        </div>
-      </div>
-    </Transition>
 
     <div
       class="auction-stage__art"

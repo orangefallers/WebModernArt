@@ -59,4 +59,44 @@ describe('GameView restart confirmation', () => {
     expect(store.game).toBeNull()
     expect(store.savedGameAvailable).toBe(false)
   })
+
+  it('can close the final result and inspect the finished game board', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: { template: '<div>首頁</div>' } },
+        { path: '/game', component: GameView },
+      ],
+    })
+    await router.push('/game')
+    await router.isReady()
+
+    const store = useGameStore()
+    store.begin(2)
+    if (!store.game) throw new Error('game should be started')
+    store.game.phase = 'game-over'
+
+    const wrapper = mount(GameView, {
+      global: {
+        plugins: [pinia, router],
+        stubs: {
+          MarketBoard: true,
+          PlayerRail: true,
+          AuctionStage: true,
+          AuctionLog: true,
+          PlayerHand: true,
+        },
+      },
+    })
+
+    expect(wrapper.get('.final-modal').text()).toContain('拍賣會閉幕')
+
+    await wrapper.get('button[aria-label="關閉閉幕結果並查看牌局動態"]').trigger('click')
+
+    expect(wrapper.find('.final-modal').exists()).toBe(false)
+    expect(wrapper.find('.game-layout').exists()).toBe(true)
+    expect(wrapper.find('auction-log-stub').exists()).toBe(true)
+  })
 })

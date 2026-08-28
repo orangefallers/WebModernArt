@@ -45,9 +45,9 @@ function playerById(state: GameState, playerId: PlayerId): PlayerState {
 function log(
   state: GameState,
   message: string,
-  tone: 'neutral' | 'bid' | 'sale' | 'round' = 'neutral',
+  tone: 'neutral' | 'bid' | 'sale' | 'round' | 'win' = 'neutral',
 ): void {
-  state.log.push({ id: state.nextLogId, message, tone })
+  state.log.push({ id: state.nextLogId, message, round: state.round, tone })
   state.nextLogId += 1
 }
 
@@ -361,12 +361,15 @@ export function respondToDouble(
     state.lastAuctionResult = {
       id: state.nextLogId,
       kind: 'unmatched-double',
+      round: state.round,
+      auctionType: 'double',
+      cards: [pending.primaryCard],
       winnerId: owner.id,
       amount: 0,
       cardCount: 1,
       payouts: [],
     }
-    log(state, `${owner.name} 免費收下未配對的聯合拍賣作品。`, 'sale')
+    log(state, `${owner.name} 免費收下未配對的聯合拍賣作品。`, 'win')
     advanceAuctioneer(state)
   } else {
     log(state, `${playerById(state, playerId).name} 選擇不補牌。`)
@@ -428,13 +431,16 @@ function settleAuction(state: GameState, winnerId: PlayerId, amount: Money): voi
   state.lastAuctionResult = {
     id: state.nextLogId,
     kind: 'auction',
+    round: state.round,
+    auctionType: auction.type,
+    cards: [...auction.cards],
     winnerId,
     amount,
     cardCount: auction.cards.length,
     payouts,
     bankPayment,
   }
-  log(state, `${winner.name} 以 $${amount}k 得標 ${auction.cards.length} 張作品。`, 'sale')
+  log(state, `${winner.name} 以 $${amount}k 得標 ${auction.cards.length} 張作品。`, 'win')
   advanceAuctioneer(state)
 }
 

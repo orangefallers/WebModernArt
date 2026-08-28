@@ -6,6 +6,7 @@ import { useGameStore } from '@/stores/game.store'
 import MarketBoard from '@/components/game/MarketBoard.vue'
 import PlayerRail from '@/components/game/PlayerRail.vue'
 import AuctionStage from '@/components/game/AuctionStage.vue'
+import AuctionResultCard from '@/components/game/AuctionResultCard.vue'
 import AuctionLog from '@/components/game/AuctionLog.vue'
 import PlayerHand from '@/components/game/PlayerHand.vue'
 import RoundResultModal from '@/components/game/RoundResultModal.vue'
@@ -13,10 +14,12 @@ import RulesModal from '@/components/common/RulesModal.vue'
 
 const store = useGameStore()
 const router = useRouter()
-const { game, human, actorId, isHumanTurn, thinkingPlayerId } = storeToRefs(store)
+const { game, human, actorId, isHumanTurn, thinkingPlayerId, auctionResultNotice } =
+  storeToRefs(store)
 const showRules = ref(false)
 const showMenu = ref(false)
 const showRestartConfirm = ref(false)
+const showFinalResult = ref(true)
 const handCollapsed = ref(false)
 
 const finalRanking = computed(() =>
@@ -71,7 +74,13 @@ function confirmRestart(): void {
       <MarketBoard :game="game" />
       <AuctionStage />
       <aside class="game-side-stack">
-        <PlayerRail :game="game" :actor-id="actorId" :thinking-player-id="thinkingPlayerId" />
+        <PlayerRail
+          :game="game"
+          :actor-id="actorId"
+          :thinking-player-id="thinkingPlayerId"
+          :latest-winner-id="auctionResultNotice?.winnerId"
+        />
+        <AuctionResultCard v-if="auctionResultNotice" :game="game" :result="auctionResultNotice" />
         <AuctionLog :game="game" />
       </aside>
     </div>
@@ -94,10 +103,22 @@ function confirmRestart(): void {
       @continue="store.continueRound"
     />
 
-    <div v-if="game.phase === 'game-over'" class="modal-backdrop">
-      <section class="result-modal final-modal" role="dialog" aria-modal="true">
+    <div v-if="game.phase === 'game-over' && showFinalResult" class="modal-backdrop">
+      <section
+        class="result-modal final-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="final-result-title"
+      >
+        <button
+          class="modal-close"
+          aria-label="關閉閉幕結果並查看牌局動態"
+          @click="showFinalResult = false"
+        >
+          ×
+        </button>
         <span class="eyebrow">Final ledger</span>
-        <h2>拍賣會閉幕</h2>
+        <h2 id="final-result-title">拍賣會閉幕</h2>
         <p>
           {{
             finalRanking[0]?.id === human.id

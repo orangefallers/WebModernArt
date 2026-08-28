@@ -71,6 +71,24 @@ describe('player panels', () => {
     expect(seats[2]?.find('.player-seat__auctioneer-icon').exists()).toBe(false)
   })
 
+  it('marks the latest winner without replacing the current bidder highlight', () => {
+    const game = startGame({ aiCount: 2, seed: 'latest-winner-seat' })
+    const wrapper = mount(PlayerRail, {
+      props: {
+        game,
+        actorId: 'ai-2',
+        thinkingPlayerId: null,
+        latestWinnerId: 'ai-1',
+      },
+    })
+    const seats = wrapper.findAll('.player-seat')
+
+    expect(seats[1]?.classes()).toContain('player-seat--latest-winner')
+    expect(seats[1]?.classes()).not.toContain('player-seat--active')
+    expect(seats[2]?.classes()).toContain('player-seat--active')
+    expect(seats[2]?.classes()).not.toContain('player-seat--latest-winner')
+  })
+
   it('hides only AI cash when the developer setting is disabled', () => {
     saveDeveloperSettings({ showAICash: false, showPurchaseCosts: true })
     const game = startGame({ aiCount: 2, seed: 'hidden-ai-cash' })

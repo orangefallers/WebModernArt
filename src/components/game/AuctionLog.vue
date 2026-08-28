@@ -1,10 +1,26 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { GameState } from '@/domain/model'
+import type { GameLogEntry, GameState } from '@/domain/model'
 
 const props = defineProps<{ game: GameState }>()
 
-const allEntries = computed(() => [...props.game.log].reverse())
+interface DisplayLogEntry extends GameLogEntry {
+  displayRound: number
+}
+
+const allEntries = computed<DisplayLogEntry[]>(() => {
+  let inferredRound = 1
+  return props.game.log
+    .map((entry) => {
+      const roundStart = entry.message.match(/^第 ([1-4]) 輪開始。/)
+      if (roundStart?.[1]) inferredRound = Number(roundStart[1])
+      return {
+        ...entry,
+        displayRound: entry.round ?? inferredRound,
+      }
+    })
+    .reverse()
+})
 </script>
 
 <template>
@@ -22,7 +38,10 @@ const allEntries = computed(() => [...props.game.log].reverse())
         :key="entry.id"
         :class="`auction-log__entry--${entry.tone ?? 'neutral'}`"
       >
-        <span>{{ String(entry.id).padStart(2, '0') }}</span>
+        <div class="auction-log__meta" aria-label="動態編號與輪次">
+          <span class="auction-log__round">R{{ entry.displayRound }}</span>
+          <span class="auction-log__index">#{{ String(entry.id).padStart(2, '0') }}</span>
+        </div>
         <p>{{ entry.message }}</p>
       </li>
     </ol>

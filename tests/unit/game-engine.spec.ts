@@ -297,6 +297,9 @@ describe('game engine', () => {
         ?.gallery.map((entry) => entry.purchasePrice),
     ).toEqual([6, 5])
     expect(state.lastAuctionResult).toMatchObject({
+      round: 1,
+      auctionType: 'open',
+      cards: [jointCard, secondCard],
       winnerId: 'ai-2',
       amount: 11,
       cardCount: 2,
@@ -332,6 +335,9 @@ describe('game engine', () => {
     expect(state.lastAuctionResult).toEqual({
       id: expect.any(Number),
       kind: 'unmatched-double',
+      round: 1,
+      auctionType: 'double',
+      cards: [jointCard],
       winnerId: 'human',
       amount: 0,
       cardCount: 1,

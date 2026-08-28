@@ -82,7 +82,9 @@ export interface RoundResult {
 export interface GameLogEntry {
   id: number
   message: string
-  tone?: 'neutral' | 'bid' | 'sale' | 'round'
+  /** Optional so saves created before round labels were introduced still load safely. */
+  round?: number
+  tone?: 'neutral' | 'bid' | 'sale' | 'round' | 'win'
 }
 
 export interface PendingDouble {
@@ -117,6 +119,10 @@ export interface AuctionResult {
   id: number
   /** Optional so saves created before unmatched Double results were introduced still load safely. */
   kind?: 'auction' | 'unmatched-double'
+  /** Optional so saves created before rich auction result cards were introduced still load safely. */
+  round?: 1 | 2 | 3 | 4
+  auctionType?: AuctionType
+  cards?: ArtworkCard[]
   winnerId: PlayerId
   amount: Money
   cardCount: number
