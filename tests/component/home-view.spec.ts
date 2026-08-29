@@ -41,6 +41,27 @@ describe('HomeView', () => {
     expect(wrapper.get('#multiplayer-coming-soon').text()).toBe('to be continue')
   })
 
+  it('opens the game rules from the home page', async () => {
+    const router = createTestRouter()
+    await router.push('/')
+    await router.isReady()
+
+    const wrapper = mount(HomeView, { global: { plugins: [router] } })
+    const rulesButton = wrapper
+      .findAll('.home-nav__actions button')
+      .find((button) => button.text() === '遊戲規則')
+    if (!rulesButton) throw new Error('game rules button not found')
+
+    await rulesButton.trigger('click')
+
+    const rules = wrapper.get('[aria-labelledby="rules-title"]')
+    expect(rules.exists()).toBe(true)
+    for (const auctionName of ['公開競價', '一圈競價', '秘密投標', '一口定價', '聯合拍賣']) {
+      expect(rules.text()).toContain(auctionName)
+    }
+    expect(rules.text()).toContain('先打出聯合拍賣牌的玩家是次要拍賣官')
+  })
+
   it('asks for a gallery name before creating the game', async () => {
     const router = createTestRouter()
     await router.push('/')
@@ -81,17 +102,17 @@ describe('HomeView', () => {
 
     const aiCashToggle = wrapper.get('input[aria-label="顯示 AI 玩家目前金額"]')
     const purchaseCostToggle = wrapper.get('input[aria-label="顯示市場結算作品買進成本"]')
-    expect((aiCashToggle.element as HTMLInputElement).checked).toBe(true)
-    expect((purchaseCostToggle.element as HTMLInputElement).checked).toBe(true)
+    expect((aiCashToggle.element as HTMLInputElement).checked).toBe(false)
+    expect((purchaseCostToggle.element as HTMLInputElement).checked).toBe(false)
 
-    await aiCashToggle.setValue(false)
-    await purchaseCostToggle.setValue(false)
+    await aiCashToggle.setValue(true)
+    await purchaseCostToggle.setValue(true)
     await wrapper
       .findAll('.developer-mode-modal button')
       .find((button) => button.text() === '套用設定')!
       .trigger('click')
 
-    expect(useDeveloperSettings().developerSettings.showAICash).toBe(false)
-    expect(useDeveloperSettings().developerSettings.showPurchaseCosts).toBe(false)
+    expect(useDeveloperSettings().developerSettings.showAICash).toBe(true)
+    expect(useDeveloperSettings().developerSettings.showPurchaseCosts).toBe(true)
   })
 })

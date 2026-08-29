@@ -38,6 +38,10 @@ describe('GameView restart confirmation', () => {
       },
     })
 
+    expect(
+      wrapper.findAll('.game-nav__actions button').some((button) => button.text() === '規則'),
+    ).toBe(false)
+
     await wrapper.get('button[aria-label="遊戲選單"]').trigger('click')
     const restartButton = wrapper
       .findAll('.game-menu button')

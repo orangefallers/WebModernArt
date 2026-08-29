@@ -1924,6 +1924,12 @@ input:focus-visible {
   box-shadow: 12px 12px 0 var(--acid);
 }
 
+.rules-modal {
+  width: min(100%, 780px);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
 .result-modal--round {
   width: min(100%, 760px);
   max-height: calc(100vh - 40px);
@@ -2222,6 +2228,25 @@ input:focus-visible {
   margin: 28px 0;
 }
 
+.rules-intro {
+  margin: 0;
+  color: rgba(27, 26, 20, 0.65);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.rules-section-title {
+  margin: 28px 0 0;
+  font-family: Georgia, serif;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.rules-columns--overview {
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 16px;
+}
+
 .rules-columns article {
   border-top: 2px solid var(--ink);
   padding-top: 10px;
@@ -2235,6 +2260,77 @@ input:focus-visible {
 .rules-columns p {
   margin: 8px 0 0;
   color: rgba(27, 26, 20, 0.65);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.auction-rule-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 20px;
+}
+
+.auction-rule {
+  border: 1px solid var(--line);
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.36);
+}
+
+.auction-rule--double {
+  grid-column: 1 / -1;
+}
+
+.auction-rule header {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 9px;
+}
+
+.auction-rule header span {
+  color: rgba(27, 26, 20, 0.42);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.auction-rule header b {
+  font-family: Georgia, serif;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.auction-rule header i {
+  font-family: Georgia, serif;
+  font-size: 17px;
+  font-style: normal;
+}
+
+.auction-rule p,
+.auction-rule small {
+  display: block;
+  color: rgba(27, 26, 20, 0.68);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.auction-rule p {
+  margin: 12px 0 8px;
+}
+
+.auction-rule small b,
+.rules-payment-note b {
+  color: var(--ink);
+}
+
+.rules-payment-note {
+  margin: 0 0 20px;
+  border-left: 4px solid var(--acid);
+  padding: 10px 12px;
+  background: rgba(231, 236, 73, 0.2);
+  color: rgba(27, 26, 20, 0.68);
   font-size: 11px;
   line-height: 1.65;
 }
@@ -2679,6 +2775,14 @@ input:focus-visible {
   .rules-columns {
     grid-template-columns: 1fr;
     gap: 14px;
+  }
+
+  .auction-rule-list {
+    grid-template-columns: 1fr;
+  }
+
+  .auction-rule--double {
+    grid-column: auto;
   }
 
   .artist-name-field {

@@ -10,13 +10,11 @@ import AuctionResultCard from '@/components/game/AuctionResultCard.vue'
 import AuctionLog from '@/components/game/AuctionLog.vue'
 import PlayerHand from '@/components/game/PlayerHand.vue'
 import RoundResultModal from '@/components/game/RoundResultModal.vue'
-import RulesModal from '@/components/common/RulesModal.vue'
 
 const store = useGameStore()
 const router = useRouter()
 const { game, human, actorId, isHumanTurn, thinkingPlayerId, auctionResultNotice } =
   storeToRefs(store)
-const showRules = ref(false)
 const showMenu = ref(false)
 const showRestartConfirm = ref(false)
 const showFinalResult = ref(true)
@@ -61,7 +59,6 @@ function confirmRestart(): void {
         ><i></i><span>拍賣季進行中</span>
       </div>
       <div class="game-nav__actions">
-        <button class="text-button" @click="showRules = true">規則</button>
         <button class="icon-button" aria-label="遊戲選單" @click="showMenu = !showMenu">•••</button>
         <div v-if="showMenu" class="game-menu">
           <button @click="requestRestart">重新開始</button>
@@ -161,7 +158,5 @@ function confirmRestart(): void {
         </div>
       </section>
     </div>
-
-    <RulesModal v-if="showRules" @close="showRules = false" />
   </div>
 </template>

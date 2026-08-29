@@ -5,10 +5,7 @@ import PlayerRail from '@/components/game/PlayerRail.vue'
 import { createDeck } from '@/domain/deck'
 import { playCard, startGame } from '@/domain/game-engine'
 import { artistDisplayName } from '@/services/settings.service'
-import {
-  restoreDefaultDeveloperSettings,
-  saveDeveloperSettings,
-} from '@/services/developer-settings.service'
+import { restoreDefaultDeveloperSettings } from '@/services/developer-settings.service'
 
 describe('player panels', () => {
   afterEach(() => restoreDefaultDeveloperSettings())
@@ -89,8 +86,7 @@ describe('player panels', () => {
     expect(seats[2]?.classes()).not.toContain('player-seat--latest-winner')
   })
 
-  it('hides only AI cash when the developer setting is disabled', () => {
-    saveDeveloperSettings({ showAICash: false, showPurchaseCosts: true })
+  it('hides only AI cash by default', () => {
     const game = startGame({ aiCount: 2, seed: 'hidden-ai-cash' })
     const wrapper = mount(PlayerRail, {
       props: { game, thinkingPlayerId: null },

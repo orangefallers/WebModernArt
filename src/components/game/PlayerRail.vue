@@ -19,6 +19,7 @@ const currentAuctioneerId = computed(
     props.game.players[props.game.auctioneerIndex]?.id,
 )
 const { developerSettings } = useDeveloperSettings()
+const canShowAICash = computed(() => import.meta.env.DEV && developerSettings.showAICash)
 
 function auctionStatus(
   playerId: PlayerId,
@@ -90,10 +91,7 @@ function auctionStatus(
           </span>
         </span>
         <span class="player-seat__assets">
-          <b
-            v-if="player.kind === 'human' || developerSettings.showAICash"
-            class="player-seat__cash"
-          >
+          <b v-if="player.kind === 'human' || canShowAICash" class="player-seat__cash">
             ${{ player.cash }}k
           </b>
           <b v-else class="player-seat__cash player-seat__cash--hidden" aria-label="AI 現金已隱藏">

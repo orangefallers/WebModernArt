@@ -8,6 +8,9 @@ import { useDeveloperSettings } from '@/services/developer-settings.service'
 const props = defineProps<{ game: GameState }>()
 defineEmits<{ continue: [] }>()
 const { developerSettings } = useDeveloperSettings()
+const canShowPurchaseCosts = computed(
+  () => import.meta.env.DEV && developerSettings.showPurchaseCosts,
+)
 
 const ranked = computed(() =>
   (props.game.roundResult?.ranking ?? []).slice(0, 3).map((artistId, index) => {
@@ -50,7 +53,7 @@ function purchasePriceLabel(purchasePrice: number | undefined): string {
 
 function artworkSettlementLabel(artwork: ArtworkRoundResult): string {
   const details = [AUCTION_LABELS[artwork.card.auctionType]]
-  if (developerSettings.showPurchaseCosts) {
+  if (canShowPurchaseCosts.value) {
     details.push(
       artwork.acquisition === 'unmatched-double'
         ? '免費獲得'

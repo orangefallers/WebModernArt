@@ -9,8 +9,8 @@ export interface DeveloperSettings {
 }
 
 export const DEFAULT_DEVELOPER_SETTINGS: DeveloperSettings = {
-  showAICash: true,
-  showPurchaseCosts: true,
+  showAICash: false,
+  showPurchaseCosts: false,
 }
 
 const developerSettingsSchema = z.object({
